@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            Int         @id @default(autoincrement())
+  username      String      @unique
+  password      String      // Hashed with bcrypt
+  role          Role        @default(EVENT_OWNER)
+  phone         String?
+  expiresAt     DateTime?
+  createdBy     User?       @relation("CreatedUsers", fields: [createdById], references: [id])
+  createdById   Int?
+  createdUsers  User[]      @relation("CreatedUsers")
+  events        Event[]
+  donations     Donation[]
+  assignedEvents Event[]    @relation("AssignedEvents")
+  pushSubscription Json?     // For PWA push notifications
+  smsTemplates  SMSTemplate[] @relation("SMSTemplateCreatedBy") // Add this line
+}
+
+model Event {
+  id            Int         @id @default(autoincrement())
+  name          String
+  type          String
+  createdBy     User        @relation(fields: [createdById], references: [id])
+  createdById   Int
+  donations     Donation[]
+  assignees     User[]      @relation("AssignedEvents")
+  smsTemplates  SMSTemplate[]
+  @@index([createdById])
+}
+
+model Donation {
+  id            Int         @id @default(autoincrement())
+  amount        Float
+  donorName     String
+  donorPhone    String?
+  eventId       Int
+  event         Event       @relation(fields: [eventId], references: [id])
+  createdBy     User        @relation(fields: [createdById], references: [id])
+  createdById   Int
+  createdAt     DateTime    @default(now())
+  status        String      @default("PENDING")
+  @@index([eventId])
+}
+
+model SMSTemplate {
+  id            Int         @id @default(autoincrement())
+  eventId       Int
+  event         Event       @relation(fields: [eventId], references: [id])
+  content       String
+  createdBy     User        @relation("SMSTemplateCreatedBy", fields: [createdById], references: [id]) // Name the relation
+  createdById   Int
+  @@index([eventId])
+}
+
+enum Role {
+  ADMIN
+  EVENT_OWNER
+  MC
+  DESK_ATTENDEE
+}
