@@ -1,5 +1,5 @@
-const { prisma } = require('../src/lib/prisma');
-const bcrypt = require('bcrypt');
+ import { prisma } from '../src/lib/prisma';
+import bcrypt from 'bcrypt';
 
 async function main() {
   const hashedPassword = await bcrypt.hash('admin123', 10);
