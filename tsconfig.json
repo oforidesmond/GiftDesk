@@ -22,6 +22,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["prisma/**/*.ts","lib/**/*.ts", "src/**/*.ts","next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": ["prisma/**/*.ts","lib/**/*.ts", "src/**/*.ts","next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/lib/prisma.js", "prisma/seed.js"],
   "exclude": ["node_modules"]
 }
