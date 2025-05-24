@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { NextAuthSessionProvider } from './providers';
 
 export const metadata: Metadata = {
   title: 'Gifts Desk App',
@@ -19,7 +20,9 @@ export default function RootLayout({
         <meta name="theme-color" content="#000000" />
       </head>
       <body className="min-h-screen bg-gray-100 font-sans">
+        <NextAuthSessionProvider>
         <main className="container mx-auto p-4">{children}</main>
+        </NextAuthSessionProvider>
       </body>
     </html>
   );
