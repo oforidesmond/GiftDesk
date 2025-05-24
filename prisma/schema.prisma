@@ -21,12 +21,24 @@ model User {
   donations     Donation[]
   assignedEvents Event[]    @relation("AssignedEvents")
   pushSubscription Json?     // For PWA push notifications
-  smsTemplates  SMSTemplate[] @relation("SMSTemplateCreatedBy") // Add this line
+  smsTemplates  SMSTemplate[] @relation("SMSTemplateCreatedBy") 
+  sentCredentials Boolean   @default(false)
+  userCredential  UserCredential?
+}
+
+model UserCredential {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id])
+  password  String   // Plain-text password
+  createdAt DateTime @default(now())
 }
 
 model Event {
   id            Int         @id @default(autoincrement())
-  name          String
+  title          String
+  location      String?
+  date          DateTime?
   type          String
   createdBy     User        @relation(fields: [createdById], references: [id])
   createdById   Int
