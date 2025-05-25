@@ -7,7 +7,7 @@ export default withAuth(
     const { role } = req.nextauth.token || {};
 
      // Allow access to no-event page for MCs and Desk Attendees
-    if (pathname === '/dashboard/no-event' && role && ['MC', 'DESK_ATTENDEE'].includes(role)) {
+     if (['/dashboard/no-event', '/dashboard/select-event'].includes(pathname) && role && ['MC', 'DESK_ATTENDEE'].includes(role)) {
       return NextResponse.next();
     }
 
