@@ -50,7 +50,7 @@ model Event {
 
 model Donation {
   id            Int         @id @default(autoincrement())
-  amount        Float
+  amount        Float?
   donorName     String
   donorPhone    String?
   giftItem      String?     

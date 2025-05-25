@@ -5,29 +5,32 @@ import { authOptions } from '@/lib/auth';
 
 export async function GET(
   request: Request,
-  context: { params:  Promise<{ eventId: string }> } // Explicit type for dynamic route params
+  context: { params: Promise<{ eventId: string }> } // Type params as Promise
 ) {
-   const params = await context.params;
-  const session = await getServerSession(authOptions);
-  if (!session || !['MC', 'DESK_ATTENDEE'].includes(session.user.role)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-  }
-
- const eventId = Number(params.eventId);
-
-  // Verify user is assigned to the event
-  const isAssigned = await prisma.user.findFirst({
-    where: {
-      id: Number(session.user.id),
-      assignedEvents: { some: { id: eventId } },
-    },
-  });
-
-  if (!isAssigned) {
-    return NextResponse.json({ error: 'Unauthorized for this event' }, { status: 403 });
-  }
-
   try {
+    const params = await context.params; // Await params
+    const session = await getServerSession(authOptions);
+    if (!session || !['MC', 'DESK_ATTENDEE'].includes(session.user.role)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const eventId = Number(params.eventId);
+    if (isNaN(eventId)) {
+      return NextResponse.json({ error: 'Invalid eventId' }, { status: 400 });
+    }
+
+    // Verify user is assigned to the event
+    const isAssigned = await prisma.user.findFirst({
+      where: {
+        id: Number(session.user.id),
+        assignedEvents: { some: { id: eventId } },
+      },
+    });
+
+    if (!isAssigned) {
+      return NextResponse.json({ error: 'Unauthorized for this event' }, { status: 403 });
+    }
+
     const donations = await prisma.donation.findMany({
       where: { eventId },
       select: {
@@ -52,28 +55,32 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  context: { params: { eventId: string } } // Explicit type for dynamic route params
+  context: { params: Promise<{ eventId: string }> } // Type params as Promise
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session || session.user.role !== 'DESK_ATTENDEE') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-  }
-
-  const eventId = Number(context.params.eventId);
-
-  // Verify Desk Attendee is assigned to the event
-  const isAssigned = await prisma.user.findFirst({
-    where: {
-      id: Number(session.user.id),
-      assignedEvents: { some: { id: eventId } },
-    },
-  });
-
-  if (!isAssigned) {
-    return NextResponse.json({ error: 'Unauthorized for this event' }, { status: 403 });
-  }
-
   try {
+    const params = await context.params; // Await params
+    const session = await getServerSession(authOptions);
+    if (!session || session.user.role !== 'DESK_ATTENDEE') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const eventId = Number(params.eventId);
+    if (isNaN(eventId)) {
+      return NextResponse.json({ error: 'Invalid eventId' }, { status: 400 });
+    }
+
+    // Verify Desk Attendee is assigned to the event
+    const isAssigned = await prisma.user.findFirst({
+      where: {
+        id: Number(session.user.id),
+        assignedEvents: { some: { id: eventId } },
+      },
+    });
+
+    if (!isAssigned) {
+      return NextResponse.json({ error: 'Unauthorized for this event' }, { status: 403 });
+    }
+
     const { donorName, donorPhone, giftItem, amount, notes, sendSMS } = await request.json();
 
     const donation = await prisma.donation.create({

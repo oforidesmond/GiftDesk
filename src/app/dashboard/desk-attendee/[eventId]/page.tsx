@@ -8,7 +8,7 @@ type Donation = {
   donorName: string;
   donorPhone: string | null;
   giftItem: string | null;
-  amount: number;
+  amount: number | null;
   notes: string | null;
   status: string;
   createdAt: string;
@@ -78,8 +78,8 @@ export default function DeskAttendeeDashboard() {
 
   // Create Donation
   const createDonation = async () => {
-    if (!donorName || !amount) {
-      alert('Donor Name and Amount are required');
+    if (!donorName) {
+      alert('Donor Name is required');
       return;
     }
 
@@ -91,7 +91,7 @@ export default function DeskAttendeeDashboard() {
           donorName,
           donorPhone,
           giftItem,
-          amount: parseFloat(amount),
+          amount: amount ? parseFloat(amount) : null,
           notes,
           sendSMS,
         }),
@@ -102,7 +102,7 @@ export default function DeskAttendeeDashboard() {
         if (sendSMS && donorPhone && smsTemplate) {
           const smsMessage = smsTemplate
             .replace('{donorName}', donorName)
-            .replace('{amount}', amount)
+            .replace('{amount}', amount || 'N/A')
             .replace('{eventName}', eventTitle);
           const smsLink = `sms:${donorPhone}?body=${encodeURIComponent(smsMessage)}`;
           if (confirm(`Send SMS to ${donorPhone}?`)) {
@@ -215,7 +215,7 @@ export default function DeskAttendeeDashboard() {
               <td className="p-2">{donation.donorName}</td>
               <td className="p-2">{donation.donorPhone || 'N/A'}</td>
               <td className="p-2">{donation.giftItem || 'N/A'}</td>
-              <td className="p-2">{donation.amount.toFixed(2)}</td>
+              <td className="p-2">{donation.amount != null ? donation.amount.toFixed(2) : 'N/A'}</td>
               <td className="p-2">{donation.notes || 'N/A'}</td>
               <td className="p-2">{donation.status}</td>
               <td className="p-2">{new Date(donation.createdAt).toLocaleString()}</td>
