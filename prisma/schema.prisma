@@ -53,6 +53,8 @@ model Donation {
   amount        Float
   donorName     String
   donorPhone    String?
+  giftItem      String?     
+  notes         String?     
   eventId       Int
   event         Event       @relation(fields: [eventId], references: [id])
   createdBy     User        @relation(fields: [createdById], references: [id])

@@ -2,9 +2,14 @@ import { withAuth } from 'next-auth/middleware';
 import { NextResponse } from 'next/server';
 
 export default withAuth(
-  function middleware(req) {
+  async function middleware(req) {
     const { pathname } = req.nextUrl;
     const { role } = req.nextauth.token || {};
+
+     // Allow access to no-event page for MCs and Desk Attendees
+    if (pathname === '/dashboard/no-event' && role && ['MC', 'DESK_ATTENDEE'].includes(role)) {
+      return NextResponse.next();
+    }
 
     if (pathname.startsWith('/dashboard/admin') && role !== 'ADMIN') {
       return NextResponse.redirect(new URL('/dashboard', req.url));
@@ -18,6 +23,8 @@ export default withAuth(
     if (pathname.startsWith('/dashboard/desk-attendee') && role !== 'DESK_ATTENDEE') {
       return NextResponse.redirect(new URL('/dashboard', req.url));
     }
+
+    return NextResponse.next();
   },
   {
     callbacks: {
