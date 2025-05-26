@@ -6,17 +6,40 @@ const withPWA = withPWAInit({
   register: true,
    workboxOptions: {
     skipWaiting: true,
-    // Add other Workbox-specific options here if needed,
-    // like clientsClaim: true,
-    // or runtimeCaching: [...]
+     runtimeCaching: [
+      {
+        urlPattern: /^https?.*/, // Cache external resources
+        handler: 'NetworkFirst',
+        options: {
+          cacheName: 'offlineCache',
+          expiration: {
+            maxEntries: 200,
+            maxAgeSeconds: 24 * 60 * 60, // 24 hours
+          },
+        },
+      },
+      {
+        urlPattern: /^\/api\/donations\/.*/, // Cache API responses
+        handler: 'StaleWhileRevalidate',
+        options: {
+          cacheName: 'donations-api',
+          expiration: {
+            maxEntries: 100,
+            maxAgeSeconds: 24 * 60 * 60, // 24 hours
+          },
+        },
+      },
+    ],
   },
-  // Optional: Disable PWA in development for faster builds if you don't need to debug the service worker
-  // disable: process.env.NODE_ENV === 'development',
+  cacheOnFrontEndNav: true,
 });
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // Add any other Next.js specific configurations here
+  //  swcMinify: true,
+  images: {
+    unoptimized: false,
+  },
 };
 
 export default withPWA(nextConfig);

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { NextAuthSessionProvider } from './providers';
+import Header from '@/components/Header';
 
 export const metadata: Metadata = {
   title: 'Gifts Desk App',
@@ -19,8 +20,9 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#000000" />
       </head>
-      <body className="min-h-screen bg-gray-100 font-sans">
+      <body className="min-h-screen bg-[#263238] font-sans">
         <NextAuthSessionProvider>
+          <Header/>
         <main className="container mx-auto p-4">{children}</main>
         </NextAuthSessionProvider>
       </body>

@@ -18,7 +18,7 @@ export default function NoEvent() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md text-center">
+    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md text-center text-black">
       <h1 className="text-2xl font-bold mb-6">No Assigned Events</h1>
       <p>You are not assigned to any events. Please contact your Event Owner for assistance.</p>
     </div>

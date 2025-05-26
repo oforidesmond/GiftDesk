@@ -24,6 +24,7 @@ model User {
   smsTemplates  SMSTemplate[] @relation("SMSTemplateCreatedBy") 
   sentCredentials Boolean   @default(false)
   userCredential  UserCredential?
+  @@index([role])
 }
 
 model UserCredential {
@@ -46,6 +47,8 @@ model Event {
   assignees     User[]      @relation("AssignedEvents")
   smsTemplates  SMSTemplate[]
   @@index([createdById])
+  @@index([date])
+  @@index([type])
 }
 
 model Donation {
@@ -62,6 +65,10 @@ model Donation {
   createdAt     DateTime    @default(now())
   status        String      @default("PENDING")
   @@index([eventId])
+  @@index([createdById])
+  @@index([status])     
+  @@index([createdAt])   
+  @@index([eventId, status])
 }
 
 model SMSTemplate {
@@ -72,6 +79,7 @@ model SMSTemplate {
   createdBy     User        @relation("SMSTemplateCreatedBy", fields: [createdById], references: [id]) // Name the relation
   createdById   Int
   @@index([eventId])
+  @@index([createdById])
 }
 
 enum Role {

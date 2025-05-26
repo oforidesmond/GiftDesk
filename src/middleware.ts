@@ -28,7 +28,13 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token,
+      authorized: ({ token, req }) => {
+        // Allow unauthenticated access to / and /sign-in
+        if (req.nextUrl.pathname === '/' || req.nextUrl.pathname === '/sign-in') {
+          return true;
+        }
+        return !!token;
+      },
     },
   }
 );

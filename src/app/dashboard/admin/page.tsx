@@ -75,7 +75,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md">
+    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md text-black">
       <h1 className="text-2xl font-bold mb-6">Admin Dashboard</h1>
 
       {/* Create Event Owner Form */}
