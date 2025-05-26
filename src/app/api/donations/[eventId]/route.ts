@@ -10,7 +10,7 @@ export async function GET(
   try {
     const params = await context.params; // Await params
     const session = await getServerSession(authOptions);
-    if (!session || !['MC', 'DESK_ATTENDEE'].includes(session.user.role)) {
+    if (!session || !['MC', 'DESK_ATTENDEE', 'EVENT_OWNER'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
