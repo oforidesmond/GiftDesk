@@ -49,7 +49,7 @@ export default function AdminDashboard() {
         password,
         phone,
         role: 'EVENT_OWNER',
-        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+        expiresInDays: expiresAt ? parseInt(expiresAt, 10) : null,
       }),
     });
     if (response.ok) {
@@ -104,11 +104,11 @@ export default function AdminDashboard() {
             className="p-2 border rounded"
           />
           <input
-            type="datetime-local"
-            value={expiresAt}
-            onChange={(e) => setExpiresAt(e.target.value)}
-            placeholder="Credential Expiration"
-            className="p-2 border rounded"
+              type="number"
+              min={1}
+              placeholder="Credential Duration (days)"
+              className="p-2 border rounded"
+              onChange={(e) => setExpiresAt(e.target.value)}
           />
           <button
             onClick={createOwner}

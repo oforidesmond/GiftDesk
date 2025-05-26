@@ -10,10 +10,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  const { username, password, phone, role, expiresAt } = await request.json();
+  const { username, password, phone, role, expiresInDays } = await request.json();
 
   if (!username || !password || !phone || role !== 'EVENT_OWNER') {
     return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+  }
+
+  let expiresAt: Date | null = null;
+  if (typeof expiresInDays === 'number' && expiresInDays > 0) {
+    const now = new Date();
+    now.setDate(now.getDate() + expiresInDays);
+    expiresAt = now;
   }
 
   try {
@@ -24,7 +31,7 @@ export async function POST(request: Request) {
         password: hashedPassword,
         phone,
         role,
-        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        expiresAt,
         createdById: Number(session.user.id),
       },
     });

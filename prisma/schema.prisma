@@ -14,7 +14,7 @@ model User {
   role          Role        @default(EVENT_OWNER)
   phone         String?
   expiresAt     DateTime?
-  createdBy     User?       @relation("CreatedUsers", fields: [createdById], references: [id])
+  createdBy     User?       @relation("CreatedUsers", fields: [createdById], references: [id], onDelete: Cascade)
   createdById   Int?
   createdUsers  User[]      @relation("CreatedUsers")
   events        Event[]

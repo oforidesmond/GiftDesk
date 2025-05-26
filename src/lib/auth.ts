@@ -83,6 +83,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = (user as CustomUser).role; // Cast user to CustomUser to access role
+        token.exp = Math.floor(Date.now() / 1000) + 6 * 60 * 60;
       }
       return token;
     },
@@ -105,6 +106,7 @@ export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: {
     strategy: 'jwt' as const, // Explicitly type as SessionStrategy
+     maxAge: 6 * 60 * 60,
   },
 };
 
