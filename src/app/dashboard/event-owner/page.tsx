@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
@@ -348,40 +348,73 @@ export default function EventOwnerDashboard() {
     return <div className="text-center mt-10">Loading...</div>;
   }
 
+  // Handle click outside to close modal
+  const modalRef = useRef<HTMLDivElement>(null);
+
+useEffect(() => {
+  const handleOverlayClick = (event: MouseEvent | TouchEvent) => {
+    const target = event.target as Node;
+    if (modalRef.current && !modalRef.current.contains(target)) {
+      setShowModal(false);
+      setError('');
+      setMcs([]);
+      setDeskAttendees([]);
+    }
+  };
+
+  document.addEventListener("mousedown", handleOverlayClick);
+  document.addEventListener("touchstart", handleOverlayClick);
+
+  return () => {
+    document.removeEventListener("mousedown", handleOverlayClick);
+    document.removeEventListener("touchstart", handleOverlayClick);
+  };
+}, []);
+
+
  return (
-    <div className="max-w-4xl mx-auto p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md text-gray-900 dark:text-gray-100">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Event Owner Dashboard</h1>
+    <div className="w-full px-4 sm:px-6 md:px-8 lg:px-10 py-4 sm:py-6 md:py-8 bg-white dark:bg-gray-800 rounded-lg shadow-md text-gray-900 dark:text-gray-100">
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-4 sm:mb-6 gap-4">
+        <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-center sm:text-left">
+          Event Owner Dashboard
+        </h1>
         {expiresAt && (
-          <div className="text-sm bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full">
+          <div className="text-sm sm:text-base bg-gray-100 dark:bg-gray-700 px-2 sm:px-3 py-1 rounded-full">
             Account expires in: {timeRemaining}
           </div>
         )}
       </div>
-      {error && <p className="text-red-600 mb-4">{error}</p>}
-      <div className="flex gap-4 mb-8">
+      {error && <p className="text-red-600 mb-4 text-sm sm:text-base text-center sm:text-left">{error}</p>}
+
+      {/* Button Group */}
+      <div className="flex flex-wrap justify-center sm:justify-start gap-2 sm:gap-3 mb-6 sm:mb-8">
         <button
           onClick={() => setShowModal(true)}
-          className="p-3 bg-blue-600 text-white rounded hover:bg-blue-700"
+          className="p-2 sm:p-3 bg-blue-600 text-white text-sm sm:text-base rounded-lg hover:bg-blue-700 transition-colors duration-200 w-full sm:w-auto"
+          aria-label="Create Event"
         >
           Create Event
         </button>
         <button
           onClick={() => router.push('/dashboard/event-owner/events')}
-          className="p-3 bg-green-600 text-white rounded hover:bg-green-700"
+          className="p-2 sm:p-3 bg-green-600 text-white text-sm sm:text-base rounded-lg hover:bg-green-700 transition-colors duration-200 w-full sm:w-auto"
+          aria-label="View All Events"
         >
           All Events
         </button>
-        <button
+        {/* <button
           onClick={() => alert('Enter SMS details or send credentials below')}
-          className="p-3 bg-purple-600 text-white rounded hover:bg-purple-700"
+          className="p-2 sm:p-3 bg-purple-600 text-white text-sm sm:text-base rounded-lg hover:bg-purple-700 transition-colors duration-200 w-full sm:w-auto"
+          aria-label="Send SMS"
         >
           Send SMS
-        </button>
+        </button> */}
         {selectedEventId && (
           <button
             onClick={downloadDonationsPDF}
-            className="p-3 bg-orange-600 text-white rounded hover:bg-orange-700"
+            className="p-2 sm:p-3 bg-orange-600 text-white text-sm sm:text-base rounded-lg hover:bg-orange-700 transition-colors duration-200 w-full sm:w-auto"
+            aria-label="Download Donations PDF"
           >
             Download Donations PDF
           </button>
@@ -389,38 +422,46 @@ export default function EventOwnerDashboard() {
       </div>
 
       {/* Send Custom SMS and Credentials */}
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Send SMS</h2>
+      <div className="mb-6 sm:mb-8">
+        <h2 className="text-lg sm:text-xl md:text-2xl font-semibold mb-4 text-center sm:text-left">
+          Send SMS
+        </h2>
         {/* Custom SMS Form */}
-        <div className="grid gap-4 mb-6">
+        <div className="grid gap-4 sm:gap-5 mb-6">
           <input
             type="tel"
             value={smsPhone}
             onChange={(e) => setSmsPhone(e.target.value)}
             placeholder="Recipient Phone (e.g., +233243248781)"
-            className="p-3 border rounded dark:bg-gray-700 dark:border-gray-600"
+            className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 w-full"
+            aria-label="Recipient Phone Number"
           />
           <textarea
             value={smsMessage}
             onChange={(e) => setSmsMessage(e.target.value)}
             placeholder="SMS Message"
-            className="p-3 border rounded dark:bg-gray-700 dark:border-gray-600"
+            className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 w-full min-h-[80px] sm:min-h-[100px]"
+            aria-label="SMS Message"
           />
           <button
             onClick={sendCustomSMS}
-            className="p-3 bg-purple-600 text-white rounded hover:bg-purple-700"
+            className="p-2 sm:p-3 bg-purple-600 text-white text-sm sm:text-base rounded-lg hover:bg-purple-700 transition-colors duration-200"
+            aria-label="Send Custom SMS"
           >
             Send Custom SMS
           </button>
         </div>
 
         {/* Credentials Sending */}
-        <h3 className="text-lg font-semibold mb-4">Send Credentials</h3>
-        <div className="mb-4 flex gap-4">
+        <h3 className="text-base sm:text-lg md:text-xl font-semibold mb-4 text-center sm:text-left">
+          Send Credentials
+        </h3>
+        <div className="mb-4 flex flex-col sm:flex-row gap-3 sm:gap-4">
           <select
             value={selectedEventId || ''}
             onChange={(e) => setSelectedEventId(Number(e.target.value) || null)}
-            className="p-3 border rounded dark:bg-gray-700 dark:border-gray-600"
+            className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 w-fit"
+            aria-label="Select Event"
           >
             <option value="">All Events</option>
             {events.map((event) => (
@@ -431,122 +472,175 @@ export default function EventOwnerDashboard() {
           </select>
           <button
             onClick={sendAllCredentials}
-            className="p-3 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="p-2 sm:p-3 bg-blue-600 text-white text-sm sm:text-base rounded-lg hover:bg-blue-700 transition-colors duration-200 w-full sm:w-auto"
+            aria-label="Send All Credentials"
           >
             Send All Credentials
           </button>
         </div>
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-gray-200 dark:bg-gray-700">
-              <th className="p-3 border dark:border-gray-600">Event</th>
-              <th className="p-3 border dark:border-gray-600">Username</th>
-              <th className="p-3 border dark:border-gray-600">Phone</th>
-              <th className="p-3 border dark:border-gray-600">Role</th>
-              <th className="p-3 border dark:border-gray-600">Status</th>
-              <th className="p-3 border dark:border-gray-600">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {assignees
-              .filter((a) => !selectedEventId || a.event.id === selectedEventId)
-              .map((assignee) => (
-                <tr key={assignee.id} className="border-b dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700">
-                  <td className="p-3">{assignee.event.title}</td>
-                  <td className="p-3">{assignee.username}</td>
-                  <td className="p-3">{assignee.phone}</td>
-                  <td className="p-3">{assignee.role.replace('_', ' ')}</td>
-                  <td className="p-3">{assignee.sentCredentials ? 'Sent' : 'Pending'}</td>
-                  <td className="p-3">
-                    <button
-                      onClick={() => sendCredentials(assignee)}
-                      className="p-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                    >
-                      Send
-                    </button>
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm sm:text-base">
+            <thead>
+              <tr className="bg-gray-200 dark:bg-gray-700">
+                <th className="p-2 sm:p-3 border dark:border-gray-600 text-left font-medium">Event</th>
+                <th className="p-2 sm:p-3 border dark:border-gray-600 text-left font-medium">Username</th>
+                <th className="p-2 sm:p-3 border dark:border-gray-600 text-left font-medium">Phone</th>
+                <th className="p-2 sm:p-3 border dark:border-gray-600 text-left font-medium">Role</th>
+                <th className="p-2 sm:p-3 border dark:border-gray-600 text-left font-medium">Status</th>
+                <th className="p-2 sm:p-3 border dark:border-gray-600 text-left font-medium">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {assignees
+                .filter((a) => !selectedEventId || a.event.id === selectedEventId)
+                .map((assignee) => (
+                  <tr
+                    key={assignee.id}
+                    className="border-b dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
+                      {assignee.event.title}
+                    </td>
+                    <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
+                      {assignee.username}
+                    </td>
+                    <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
+                      {assignee.phone}
+                    </td>
+                    <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
+                      {assignee.role.replace('_', ' ')}
+                    </td>
+                    <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
+                      {assignee.sentCredentials ? 'Sent' : 'Pending'}
+                    </td>
+                    <td className="p-2 sm:p-3">
+                      <button
+                        onClick={() => sendCredentials(assignee)}
+                        className="p-1 sm:p-2 bg-blue-600 text-white text-sm sm:text-base rounded-lg hover:bg-blue-700 transition-colors duration-200 w-full sm:w-auto"
+                        aria-label={`Send credentials for ${assignee.username}`}
+                      >
+                        Send
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Create Event Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-            <h2 className="text-xl font-semibold mb-4">Create Event</h2>
-            {error && <p className="text-red-600 mb-4">{error}</p>}
-            <form onSubmit={(e) => { e.preventDefault(); createEvent(); }} className="grid gap-4">
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 sm:p-6"
+          // onClick={handleOverlayClick}
+        >
+          <div
+            ref={modalRef}
+            className="bg-white dark:bg-gray-800 p-4 sm:p-6 md:p-8 rounded-lg w-full max-w-md sm:max-w-lg md:max-w-2xl max-h-[80vh] overflow-y-auto"
+          >
+            <h2 className="text-lg sm:text-xl md:text-2xl font-semibold mb-4 text-center sm:text-left">
+              Create Event
+            </h2>
+            {error && (
+              <p className="text-red-600 mb-4 text-sm sm:text-base text-center sm:text-left">
+                {error}
+              </p>
+            )}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                createEvent();
+              }}
+              className="grid gap-4 sm:gap-5"
+            >
               <input
                 type="text"
                 value={eventTitle}
                 onChange={(e) => setEventTitle(e.target.value)}
                 placeholder="Event Title"
-                className="p-3 border rounded dark:bg-gray-700 dark:border-gray-600"
+                className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 w-full"
                 required
+                aria-label="Event Title"
               />
               <input
                 type="text"
                 value={eventLocation}
                 onChange={(e) => setEventLocation(e.target.value)}
                 placeholder="Location"
-                className="p-3 border rounded dark:bg-gray-700 dark:border-gray-600"
+                className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 w-full"
+                aria-label="Event Location"
               />
               <input
-                type="datetime-local"
+                type="date"
                 value={eventDate}
                 onChange={(e) => setEventDate(e.target.value)}
-                className="p-3 border rounded dark:bg-gray-700 dark:border-gray-600"
+                className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 w-full"
+                aria-label="Event Date"
               />
-              <select
+              <input
+                list="event-types"
                 value={eventType}
                 onChange={(e) => setEventType(e.target.value)}
-                className="p-3 border rounded dark:bg-gray-700 dark:border-gray-600"
+                placeholder="Enter or select event type"
+                className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 w-full"
                 required
-              >
-                <option value="">Select Event Type</option>
-                <option value="Wedding">Wedding</option>
-                <option value="Funeral">Funeral</option>
-                <option value="Birthday">Birthday</option>
-              </select>
+                aria-label="Event Type"
+              />
+              <datalist id="event-types">
+                <option value="Wedding" />
+                <option value="Funeral" />
+                <option value="Birthday" />
+              </datalist>
               <textarea
                 value={smsTemplate}
                 onChange={(e) => setSmsTemplate(e.target.value)}
-                placeholder="SMS Template (e.g., Thank you, {donorName}, for your generous gift to {eventName}. May you be richly blessed!)"
-                className="p-3 border rounded dark:bg-gray-700 dark:border-gray-600"
+                placeholder="SMS Template (e.g., Thank you for your generous gift. May you be richly blessed!)"
+                className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 w-full min-h-[80px] sm:min-h-[100px]"
+                aria-label="SMS Template"
               />
-              <h3 className="text-lg font-semibold mt-4">MC Details</h3>
+              <h3 className="text-base sm:text-lg md:text-xl font-semibold mt-4 sm:mt-6 text-center sm:text-left">
+                MC Details
+              </h3>
               {mcs.length === 0 && (
-                <p className="text-gray-500 dark:text-gray-400">No MCs added. Click below to add one.</p>
+                <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base text-center sm:text-left">
+                  No MCs added. Click below to add one.
+                </p>
               )}
               {mcs.map((mc, index) => (
-                <div key={index} className="grid gap-2 border p-4 rounded dark:border-gray-600">
+                <div
+                  key={index}
+                  className="grid gap-2 sm:gap-3 border p-3 sm:p-4 rounded-lg dark:border-gray-600"
+                >
                   <input
                     type="text"
                     value={mc.username}
                     onChange={(e) => updateMc(index, 'username', e.target.value)}
                     placeholder="MC Username"
-                    className="p-3 border rounded dark:bg-gray-700 dark:border-gray-600"
+                    className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 w-full"
+                    aria-label={`MC ${index + 1} Username`}
                   />
                   <input
                     type="password"
                     value={mc.password}
                     onChange={(e) => updateMc(index, 'password', e.target.value)}
                     placeholder="MC Password"
-                    className="p-3 border rounded dark:bg-gray-700 dark:border-gray-600"
+                    className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 w-full"
+                    aria-label={`MC ${index + 1} Password`}
                   />
                   <input
                     type="tel"
                     value={mc.phone}
                     onChange={(e) => updateMc(index, 'phone', e.target.value)}
-                    placeholder="MC Contact Number (e.g., +233243248781)"
-                    className="p-3 border rounded dark:bg-gray-700 dark:border-gray-600"
+                    placeholder="MC Contact (e.g., +233243248781)"
+                    className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 w-full"
+                    aria-label={`MC ${index + 1} Contact Number`}
                   />
                   <button
                     type="button"
                     onClick={() => removeMc(index)}
-                    className="p-2 bg-red-600 text-white rounded hover:bg-red-700"
+                    className="p-2 sm:p-3 bg-red-600 text-white text-sm sm:text-base rounded-lg hover:bg-red-700 transition-colors duration-200"
+                    aria-label={`Remove MC ${index + 1}`}
                   >
                     Remove MC
                   </button>
@@ -555,41 +649,53 @@ export default function EventOwnerDashboard() {
               <button
                 type="button"
                 onClick={addMc}
-                className="p-3 bg-gray-600 text-white rounded hover:bg-gray-700"
+                className="p-2 sm:p-3 bg-gray-600 text-white text-sm sm:text-base rounded-lg hover:bg-gray-700 transition-colors duration-200 mt-2 sm:mt-3"
+                aria-label="Add MC"
               >
                 Add MC
               </button>
-              <h3 className="text-lg font-semibold mt-4">Desk Attendee Details</h3>
+              <h3 className="text-base sm:text-lg md:text-xl font-semibold mt-4 sm:mt-6 text-center sm:text-left">
+                Desk Attendee Details
+              </h3>
               {deskAttendees.length === 0 && (
-                <p className="text-gray-500 dark:text-gray-400">No Desk Attendees added. Click below to add one.</p>
+                <p className="text-gray-500 dark:text-gray-400 text-sm sm:text-base text-center sm:text-left">
+                  No Desk Attendees added. Click below to add one.
+                </p>
               )}
               {deskAttendees.map((attendee, index) => (
-                <div key={index} className="grid gap-2 border p-4 rounded dark:border-gray-600">
+                <div
+                  key={index}
+                  className="grid gap-2 sm:gap-3 border p-3 sm:p-4 rounded-lg dark:border-gray-600"
+                >
                   <input
                     type="text"
                     value={attendee.username}
                     onChange={(e) => updateDeskAttendee(index, 'username', e.target.value)}
                     placeholder="Desk Attendee Username"
-                    className="p-3 border rounded dark:bg-gray-700 dark:border-gray-600"
+                    className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 w-full"
+                    aria-label={`Desk Attendee ${index + 1} Username`}
                   />
                   <input
                     type="password"
                     value={attendee.password}
                     onChange={(e) => updateDeskAttendee(index, 'password', e.target.value)}
                     placeholder="Desk Attendee Password"
-                    className="p-3 border rounded dark:bg-gray-700 dark:border-gray-600"
+                    className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 w-full"
+                    aria-label={`Desk Attendee ${index + 1} Password`}
                   />
                   <input
                     type="tel"
                     value={attendee.phone}
                     onChange={(e) => updateDeskAttendee(index, 'phone', e.target.value)}
-                    placeholder="Desk Attendee Contact Number (e.g., +233243248781)"
-                    className="p-3 border rounded dark:bg-gray-700 dark:border-gray-600"
+                    placeholder="Desk Attendee Contact (e.g., +233243248781)"
+                    className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 w-full"
+                    aria-label={`Desk Attendee ${index + 1} Contact Number`}
                   />
                   <button
                     type="button"
                     onClick={() => removeDeskAttendee(index)}
-                    className="p-2 bg-red-600 text-white rounded hover:bg-red-700"
+                    className="p-2 sm:p-3 bg-red-600 text-white text-sm sm:text-base rounded-lg hover:bg-red-700 transition-colors duration-200"
+                    aria-label={`Remove Desk Attendee ${index + 1}`}
                   >
                     Remove Desk Attendee
                   </button>
@@ -598,14 +704,16 @@ export default function EventOwnerDashboard() {
               <button
                 type="button"
                 onClick={addDeskAttendee}
-                className="p-3 bg-gray-600 text-white rounded hover:bg-gray-700"
+                className="p-2 sm:p-3 bg-gray-600 text-white text-sm sm:text-base rounded-lg hover:bg-gray-700 transition-colors duration-200 mt-2 sm:mt-3"
+                aria-label="Add Desk Attendee"
               >
                 Add Desk Attendee
               </button>
-              <div className="flex gap-4 mt-4">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-4 sm:mt-6">
                 <button
                   type="submit"
-                  className="p-3 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  className="p-2 sm:p-3 bg-blue-600 text-white text-sm sm:text-base rounded-lg hover:bg-blue-700 transition-colors duration-200 w-full sm:w-auto"
+                  aria-label="Create Event"
                 >
                   Create Event
                 </button>
@@ -617,7 +725,8 @@ export default function EventOwnerDashboard() {
                     setMcs([]);
                     setDeskAttendees([]);
                   }}
-                  className="p-3 bg-red-600 text-white rounded hover:bg-red-700"
+                  className="p-2 sm:p-3 bg-red-600 text-white text-sm sm:text-base rounded-lg hover:bg-red-700 transition-colors duration-200 w-full sm:w-auto"
+                  aria-label="Cancel"
                 >
                   Cancel
                 </button>
