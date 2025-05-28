@@ -27,7 +27,7 @@
     "react-dom": "^19.0.0"
   },
   "prisma": {
-    "seed": "node prisma/seed.js"
+    "seed": "node prisma/seed2.js"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",

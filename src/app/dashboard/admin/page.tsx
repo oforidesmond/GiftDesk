@@ -20,6 +20,8 @@ export default function AdminDashboard() {
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+
 
   // Redirect if not admin
   useEffect(() => {
@@ -118,11 +120,24 @@ export default function AdminDashboard() {
             <input
               type="tel"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => {
+              const value = e.target.value;
+              setPhone(value);
+              if (value.length < 10) {
+                setPhoneError('Phone number must be at least 10 digits');
+              } else {
+                setPhoneError(null);
+              }
+            }}
               placeholder="e.g., +233243248781"
               className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 w-full"
               aria-label="Contact Number"
+              minLength={10}
+              required
             />
+             {phoneError && (
+              <p className="text-red-600 text-sm mt-1">{phoneError}</p>
+              )}
           </div>
 
           <div className="flex flex-col">
@@ -136,6 +151,7 @@ export default function AdminDashboard() {
               onChange={(e) => setExpiresAt(e.target.value)}
               className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 w-full"
               aria-label="Expiration Period"
+              required
             />
           </div>
 

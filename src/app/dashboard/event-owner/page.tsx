@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Loading from '@/components/Loading';
+import { useLoading } from '@/context/LoadingContext';
 
 type Assignee = {
   id: number;
@@ -35,6 +36,7 @@ type Donation = {
 export default function EventOwnerDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
+    const { setLoading } = useLoading();
   const [showModal, setShowModal] = useState(false);
   const [eventTitle, setEventTitle] = useState('');
   const [eventLocation, setEventLocation] = useState('');
@@ -63,6 +65,7 @@ export default function EventOwnerDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setLoading(true);
         // Fetch events
         const eventsResponse = await fetch('/api/events');
         if (eventsResponse.ok) {
@@ -88,6 +91,8 @@ export default function EventOwnerDashboard() {
         }
       } catch (error) {
         console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
       }
     };
     fetchData();
@@ -157,6 +162,7 @@ export default function EventOwnerDashboard() {
   const createEvent = async () => {
     setError('');
     try {
+      setLoading(true);
       // Filter valid MCs and Desk Attendees
       const validMcs = mcs.filter(mc => mc.username.trim() && mc.password.trim());
       const validAttendees = deskAttendees.filter(attendee => attendee.username.trim() && attendee.password.trim());
@@ -185,6 +191,7 @@ export default function EventOwnerDashboard() {
 
       if (response.ok) {
         const { mcs: createdMcs, deskAttendees: createdAttendees } = await response.json();
+        setLoading(true);
         // Refresh assignees and events
         const [assigneesResponse, eventsResponse] = await Promise.all([
           fetch('/api/roles/list'),
@@ -212,6 +219,8 @@ export default function EventOwnerDashboard() {
     } catch (error) {
       console.error('Error creating event:', error);
       setError('Error creating event');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -346,7 +355,7 @@ export default function EventOwnerDashboard() {
   };
 
   if (status === 'loading') {
-    return <Loading />;
+    return null;
   }
 
   // Handle click outside to close modal

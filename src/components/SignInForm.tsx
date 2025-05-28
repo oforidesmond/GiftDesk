@@ -4,6 +4,7 @@ import { signIn, useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import Loading from './Loading';
+import { useLoading } from '@/context/LoadingContext';
 
 export default function SignInForm() {
   const { data: session, status } = useSession();
@@ -13,6 +14,7 @@ export default function SignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
+  const { setLoading } = useLoading();
 
   const [showPassword, setShowPassword] = useState(false);
 
@@ -29,11 +31,16 @@ export default function SignInForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const trimmedUsername = username.trim();
+    const trimmedPassword = password.trim();
+
     try {
+      setLoading(true);
       const result = await signIn('credentials', {
         redirect: false,
-        username,
-        password,
+        username: trimmedUsername,
+        password: trimmedPassword
       });
 
       if (result?.error) {
@@ -43,11 +50,13 @@ export default function SignInForm() {
       }
     } catch (err) {
       setError('An error occurred during sign-in');
+    } finally {
+      setLoading(false);
     }
   };
 
   if (status === 'loading') {
-    return <Loading />;
+    return null;
   }
 
  return (
@@ -71,7 +80,10 @@ export default function SignInForm() {
         <input
           type="text"
           value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          onChange={(e) => {
+            setUsername(e.target.value);
+            if (error) setError(null);
+          }}
           placeholder="Username"
           className="p-3 text-sm text-gray-700 sm:p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
           required
@@ -80,7 +92,10 @@ export default function SignInForm() {
           <input
             type={showPassword ? 'text' : 'password'}
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (error) setError(null);
+              }}
             placeholder="Password"
             className="p-3 text-sm text-gray-700 sm:p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 w-full pr-10"
             required
