@@ -58,18 +58,27 @@ export default function SelectEvent() {
     return <div className="text-center mt-10 text-red-600">{error}</div>;
   }
 
-  return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md text-black">
-      <h1 className="text-2xl font-bold mb-6">Select an Event</h1>
+   return (
+    <div
+      className="w-full px-4 sm:px-6 md:px-8 lg:px-10 py-4 sm:py-6 md:py-8 bg-gray-100 rounded-lg shadow-md text-black"
+      role="region"
+      aria-label="Event Selection"
+    >
+      <h1 className="text-lg sm:text-xl md:text-2xl font-bold mb-4 sm:mb-6 text-center sm:text-left">
+        Select an Event
+      </h1>
       {events.length === 0 ? (
-        <p className="text-center">No events assigned.</p>
+        <p className="text-sm sm:text-base md:text-lg text-center leading-relaxed">
+          No events assigned.
+        </p>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-3 sm:gap-4">
           {events.map((event) => (
             <button
               key={event.id}
               onClick={() => selectEvent(event.id)}
-              className="p-4 bg-blue-600 text-white rounded hover:bg-blue-700 text-left"
+              className="p-3 sm:p-4 bg-gray-600 text-white text-sm sm:text-base rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-left transition-colors duration-200"
+              aria-label={`Select event: ${event.title}`}
             >
               {event.title}
             </button>
