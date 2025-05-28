@@ -136,59 +136,96 @@ export default function DeskAttendeeDashboard() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-md text-black">
-      <h1 className="text-2xl font-bold mb-6">Desk Attendee Dashboard - {eventTitle}</h1>
+    <div className="w-full px-4 sm:px-6 md:px-8 lg:px-10 py-4 sm:py-6 md:py-8 bg-gray-100 rounded-lg shadow-md text-black">
+      <h1 className="text-lg sm:text-xl md:text-2xl font-bold mb-4 sm:mb-6 text-center sm:text-left">
+        Gift Table - {eventTitle}
+      </h1>
 
       {/* Create Donation Form */}
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Add Donation</h2>
-        <div className="grid gap-4">
-          <input
-            type="text"
-            value={donorName}
-            onChange={(e) => setDonorName(e.target.value)}
-            placeholder="Donor Name"
-            className="p-2 border rounded"
-          />
-          <input
-            type="tel"
-            value={donorPhone}
-            onChange={(e) => setDonorPhone(e.target.value)}
-            placeholder="Donor Phone (e.g., +2341234567890)"
-            className="p-2 border rounded"
-          />
-          <input
-            type="text"
-            value={giftItem}
-            onChange={(e) => setGiftItem(e.target.value)}
-            placeholder="Gift Item"
-            className="p-2 border rounded"
-          />
-          <input
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="Amount"
-            className="p-2 border rounded"
-          />
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Notes"
-            className="p-2 border rounded"
-          />
-          <label className="flex items-center gap-2">
+      <div className="mb-6 sm:mb-8">
+        <h2 className="text-base sm:text-lg md:text-xl font-semibold mb-4 text-center sm:text-left">
+          Add Donation
+        </h2>
+        <div className="grid gap-4 sm:gap-5">
+          <div className="flex flex-col">
+            <label className="block text-sm sm:text-base font-medium text-gray-700 mb-1">
+              Donor Name
+            </label>
+            <input
+              type="text"
+              value={donorName}
+              onChange={(e) => setDonorName(e.target.value)}
+              className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+              aria-label="Donor Name"
+            />
+          </div>
+
+          <div className="flex flex-col">
+            <label className="block text-sm sm:text-base font-medium text-gray-700 mb-1">
+              Donor Phone (e.g., +233241298861)
+            </label>
+            <input
+              type="tel"
+              value={donorPhone}
+              onChange={(e) => setDonorPhone(e.target.value)}
+              className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+              aria-label="Donor Phone"
+            />
+          </div>
+
+          <div className="flex flex-col">
+            <label className="block text-sm sm:text-base font-medium text-gray-700 mb-1">
+              Gift Item
+            </label>
+            <input
+              type="text"
+              value={giftItem}
+              onChange={(e) => setGiftItem(e.target.value)}
+              className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+              aria-label="Gift Item"
+            />
+          </div>
+
+          <div className="flex flex-col">
+            <label className="block text-sm sm:text-base font-medium text-gray-700 mb-1">
+              Amount
+            </label>
+            <input
+              type="number"
+              value={amount}
+              min={1}
+              onChange={(e) => setAmount(e.target.value)}
+              className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+              aria-label="Donation Amount"
+            />
+          </div>
+
+          <div className="flex flex-col">
+            <label className="block text-sm sm:text-base font-medium text-gray-700 mb-1">
+              Notes
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full min-h-[80px] sm:min-h-[100px]"
+              aria-label="Donation Notes"
+            />
+          </div>
+
+          <label className="flex items-center text-sm sm:text-base gap-2 sm:gap-3">
             <input
               type="checkbox"
               checked={sendSMS}
               onChange={(e) => setSendSMS(e.target.checked)}
-              className="h-4 w-4"
+              className="h-4 w-4 sm:h-5 sm:w-5 rounded border-gray-300 focus:ring-blue-500"
+              aria-label="Send Donor SMS"
             />
-            Send SMS Confirmation
+            Send Donor SMS
           </label>
           <button
             onClick={createDonation}
-            className="p-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            className="p-2 sm:p-3 bg-blue-600 text-white text-sm sm:text-base rounded-lg hover:bg-blue-700 transition-colors duration-200"
+            aria-label="Add Donation"
           >
             Add Donation
           </button>
@@ -196,33 +233,51 @@ export default function DeskAttendeeDashboard() {
       </div>
 
       {/* Donations Table */}
-      <h2 className="text-xl font-semibold mb-4">Donations</h2>
-      <table className="w-full border-collapse">
-        <thead>
-          <tr className="bg-gray-200">
-            <th className="p-2 border">Donor Name</th>
-            <th className="p-2 border">Donor Phone</th>
-            <th className="p-2 border">Gift Item</th>
-            <th className="p-2 border">Amount</th>
-            <th className="p-2 border">Notes</th>
-            <th className="p-2 border">Status</th>
-            <th className="p-2 border">Created At</th>
-          </tr>
-        </thead>
-        <tbody>
-          {donations.map((donation) => (
-            <tr key={donation.id} className="border-b">
-              <td className="p-2">{donation.donorName}</td>
-              <td className="p-2">{donation.donorPhone || 'N/A'}</td>
-              <td className="p-2">{donation.giftItem || 'N/A'}</td>
-              <td className="p-2">{donation.amount != null ? donation.amount.toFixed(2) : 'N/A'}</td>
-              <td className="p-2">{donation.notes || 'N/A'}</td>
-              <td className="p-2">{donation.status}</td>
-              <td className="p-2">{new Date(donation.createdAt).toLocaleString()}</td>
+      <h2 className="text-base sm:text-lg md:text-xl font-semibold mb-4 text-center sm:text-left">
+        Donations
+      </h2>
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-sm sm:text-base">
+          <thead>
+            <tr className="bg-gray-200">
+              <th className="p-2 sm:p-3 border text-left font-medium">Name</th>
+              <th className="p-2 sm:p-3 border text-left font-medium">Phone</th>
+              <th className="p-2 sm:p-3 border text-left font-medium">Gift Item</th>
+              <th className="p-2 sm:p-3 border text-left font-medium">Amount</th>
+              <th className="p-2 sm:p-3 border text-left font-medium">Notes</th>
+              <th className="p-2 sm:p-3 border text-left font-medium">Status</th>
+              <th className="p-2 sm:p-3 border text-left font-medium">Created At</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {donations.map((donation) => (
+              <tr key={donation.id} className="border-b hover:bg-gray-50">
+                <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
+                  {donation.donorName}
+                </td>
+                <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
+                  {donation.donorPhone || 'N/A'}
+                </td>
+                <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
+                  {donation.giftItem || 'N/A'}
+                </td>
+                <td className="p-2 sm:p-3 truncate max-w-[80px] sm:max-w-[100px] md:max-w-[120px]">
+                  {donation.amount != null ? donation.amount.toFixed(2) : 'N/A'}
+                </td>
+                <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
+                  {donation.notes || 'N/A'}
+                </td>
+                <td className="p-2 sm:p-3 truncate max-w-[80px] sm:max-w-[100px] md:max-w-[120px]">
+                  {donation.status}
+                </td>
+                <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
+                  {new Date(donation.createdAt).toLocaleString()}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
