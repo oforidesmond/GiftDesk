@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Loading from '@/components/Loading';
 
 type User = {
   id: number;
@@ -71,7 +72,7 @@ export default function AdminDashboard() {
   };
 
   if (status === 'loading') {
-    return <div className="text-center mt-10">Loading...</div>;
+    return <Loading />;
   }
 
   return (

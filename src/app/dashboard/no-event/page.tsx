@@ -1,4 +1,5 @@
 'use client';
+import Loading from '@/components/Loading';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
@@ -14,7 +15,7 @@ export default function NoEvent() {
   }, [status, session, router]);
 
   if (status === 'loading') {
-    return <div className="text-center mt-10">Loading...</div>;
+    return <Loading />;
   }
 
    return (

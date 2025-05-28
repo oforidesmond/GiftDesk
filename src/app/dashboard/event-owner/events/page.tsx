@@ -6,6 +6,7 @@ import {
   PencilSquareIcon,
   TrashIcon,
 } from '@heroicons/react/24/outline';
+import Loading from '@/components/Loading';
 
 type Event = {
   id: number;
@@ -38,7 +39,7 @@ export default function AllEvents() {
   }, []);
 
   if (status === 'loading') {
-    return <div className="text-center mt-10">Loading...</div>;
+   return <Loading />;
   }
 
    return (

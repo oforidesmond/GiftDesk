@@ -1,4 +1,5 @@
 'use client';
+import Loading from '@/components/Loading';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -79,7 +80,7 @@ export default function Dashboard() {
   }, [status, session, assignedEvents, error, router]);
 
   if (status === 'loading') {
-    return <div className="text-center mt-10">Loading...</div>;
+    return <Loading />;
   }
 
   if (error) {

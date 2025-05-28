@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Loading from '@/components/Loading';
 
 export default function SelectEvent() {
   const { data: session, status } = useSession();
@@ -51,7 +52,7 @@ export default function SelectEvent() {
   };
 
   if (status === 'loading') {
-    return <div className="text-center mt-10">Loading...</div>;
+    return <Loading />;
   }
 
   if (error) {

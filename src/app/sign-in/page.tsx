@@ -1,9 +1,10 @@
 import { Suspense } from 'react';
 import SignInForm from '@/components/SignInForm';
+import Loading from '@/components/Loading';
 
 export default function SignInPage() {
   return (
-    <Suspense fallback={<div className="text-center mt-10">Loading...</div>}>
+    <Suspense fallback={<Loading />}>
       <SignInForm />
     </Suspense>
   );

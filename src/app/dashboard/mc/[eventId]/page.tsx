@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
+import Loading from '@/components/Loading';
 
 type Donation = {
   id: number;
@@ -77,7 +78,7 @@ export default function MCDashboard() {
   }, [eventId, status, router]);
 
   if (status === 'loading') {
-    return <div className="text-center mt-10">Loading...</div>;
+   return <Loading />;
   }
 
    if (error) {

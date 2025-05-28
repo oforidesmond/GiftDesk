@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import Loading from '@/components/Loading';
 
 type Assignee = {
   id: number;
@@ -345,7 +346,7 @@ export default function EventOwnerDashboard() {
   };
 
   if (status === 'loading') {
-    return <div className="text-center mt-10">Loading...</div>;
+    return <Loading />;
   }
 
   // Handle click outside to close modal

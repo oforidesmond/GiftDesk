@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { signIn, useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import Loading from './Loading';
 
 export default function SignInForm() {
   const { data: session, status } = useSession();
@@ -46,7 +47,7 @@ export default function SignInForm() {
   };
 
   if (status === 'loading') {
-    return <div className="text-center mt-10">Loading...</div>;
+    return <Loading />;
   }
 
  return (

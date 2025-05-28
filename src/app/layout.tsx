@@ -3,6 +3,7 @@ import './globals.css';
 import { NextAuthSessionProvider } from './providers';
 // import Header from '@/components/Header';
 import ConditionalHeader from '@/components/ConditionalHeader';
+import PWAInstallModal from '@/components/PWAInstallModal';
 
 export const metadata: Metadata = {
   title: 'Gifts Desk App',
@@ -25,6 +26,7 @@ export default function RootLayout({
         <NextAuthSessionProvider>
           <ConditionalHeader />
           <main className="container mx-auto p-4">{children}</main>
+          <PWAInstallModal />
         </NextAuthSessionProvider>
       </body>
     </html>
