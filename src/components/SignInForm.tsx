@@ -42,17 +42,30 @@ export default function SignInForm() {
     return <div className="text-center mt-10">Loading...</div>;
   }
 
-  return (
-    <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
-      <h1 className="text-2xl font-bold mb-6 text-center">Sign In</h1>
-      {error && <p className="text-red-600 mb-4 text-center">{error}</p>}
+ return (
+  <div className="flex flex-col items-center justify-center min-h-screen px-4 bg-gray-900">
+    {/* Icon and App Name */}
+    <div className="mb-6 text-center">
+      <img
+        src="/icon-192x192.png"
+        alt="App Icon"
+        className="w-20 h-20 mx-auto mb-2"
+      />
+      <h2 className="text-2xl font-semibold text-white">GiftDesk</h2>
+    </div>
+
+    <div className="w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-lg bg-white rounded-2xl shadow-lg p-6 sm:p-8 md:p-10">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-center text-gray-800">Sign In</h1>
+
+      <h3 className="text-sm sm:text-xs font-normal mb-6 text-center text-gray-600">Please login to proceed to your dashboard</h3>
+
       <form onSubmit={handleSubmit} className="grid gap-4">
         <input
           type="text"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           placeholder="Username"
-          className="p-2 border rounded"
+          className="p-3 text-sm text-gray-700 sm:p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
           required
         />
         <input
@@ -60,16 +73,19 @@ export default function SignInForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Password"
-          className="p-2 border rounded"
+          className="p-3 text-sm text-gray-700 sm:p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
           required
         />
         <button
           type="submit"
-          className="p-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          className="p-3 sm:p-4 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-700 transition-colors duration-200"
         >
           Sign In
         </button>
       </form>
+
+       {error && <p className="text-red-600 m-2 mt-5 text-center text-sm font-light sm:text-base">{error}</p>}
     </div>
-  );
+  </div>
+);
 }
