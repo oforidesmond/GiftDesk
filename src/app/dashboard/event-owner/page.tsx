@@ -20,6 +20,11 @@ type Assignee = {
 type Event = {
   id: number;
   title: string;
+  createdAt?: string;
+};
+
+type EventWithLocalId = Event & {
+  Id: number; // New local ID field
 };
 
 type Donation = {
@@ -48,7 +53,7 @@ export default function EventOwnerDashboard() {
   const [smsPhone, setSmsPhone] = useState('');
   const [smsMessage, setSmsMessage] = useState('');
   const [assignees, setAssignees] = useState<Assignee[]>([]);
-  const [events, setEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<EventWithLocalId[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [timeRemaining, setTimeRemaining] = useState('');
@@ -69,8 +74,20 @@ export default function EventOwnerDashboard() {
         // Fetch events
         const eventsResponse = await fetch('/api/events');
         if (eventsResponse.ok) {
-          const eventsData = await eventsResponse.json();
-          setEvents(eventsData);
+          const eventsData: Event[]  = await eventsResponse.json();
+          const sortedEvents = eventsData
+            .sort((a, b) => {
+              // Sort by createdAt if available, otherwise by id
+              if (a.createdAt && b.createdAt) {
+                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+              }
+              return b.id - a.id; // Fallback to database ID
+            })
+            .map((event, index) => ({
+              ...event,
+              Id: index + 1, // Assign local ID (1, 2, 3, ...)
+            }));
+          setEvents(sortedEvents);
           if (eventsData.length > 0 && !selectedEventId) {
             setSelectedEventId(eventsData[0].id);
           }
@@ -333,7 +350,7 @@ export default function EventOwnerDashboard() {
         d.donorName,
         d.donorPhone || 'N/A',
         d.giftItem || 'N/A',
-        `GH₵${d.amount.toFixed(2)}`,
+        `GHS${d.amount.toFixed(2)}`,
         d.notes || 'N/A',
         d.status,
         new Date(d.createdAt).toLocaleString(),
@@ -492,6 +509,7 @@ useEffect(() => {
           <table className="w-full border-collapse text-sm sm:text-base">
             <thead>
               <tr className="bg-gray-200 dark:bg-gray-700">
+                <th className="p-2 sm:p-3 border dark:border-gray-600 text-left font-medium">ID</th> 
                 <th className="p-2 sm:p-3 border dark:border-gray-600 text-left font-medium">Event</th>
                 <th className="p-2 sm:p-3 border dark:border-gray-600 text-left font-medium">Username</th>
                 <th className="p-2 sm:p-3 border dark:border-gray-600 text-left font-medium">Phone</th>
@@ -501,39 +519,45 @@ useEffect(() => {
               </tr>
             </thead>
             <tbody>
-              {assignees
+             {assignees
                 .filter((a) => !selectedEventId || a.event.id === selectedEventId)
-                .map((assignee) => (
-                  <tr
-                    key={assignee.id}
-                    className="border-b dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
-                      {assignee.event.title}
-                    </td>
-                    <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
-                      {assignee.username}
-                    </td>
-                    <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
-                      {assignee.phone}
-                    </td>
-                    <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
-                      {assignee.role.replace('_', ' ')}
-                    </td>
-                    <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
-                      {assignee.sentCredentials ? 'Sent' : 'Pending'}
-                    </td>
-                    <td className="p-2 sm:p-3">
-                      <button
-                        onClick={() => sendCredentials(assignee)}
-                        className="p-1 sm:p-2 bg-blue-600 text-white text-sm sm:text-base rounded-lg hover:bg-blue-700 transition-colors duration-200 w-full sm:w-auto"
-                        aria-label={`Send credentials for ${assignee.username}`}
-                      >
-                        Send
+                .map((assignee) => {
+                  const event = events.find((e) => e.id === assignee.event.id);
+                  return (
+                    <tr
+                      key={assignee.id}
+                      className="border-b dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <td className="p-2 sm:p-3 truncate max-w-[50px] sm:max-w-[70px] md:max-w-[100px]">
+                        {event?.Id || 'N/A'} {/* Display local ID */}
+                      </td>
+                      <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
+                        {assignee.event.title}
+                      </td>
+                      <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
+                        {assignee.username}
+                      </td>
+                      <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
+                        {assignee.phone}
+                      </td>
+                      <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
+                        {assignee.role.replace('_', ' ')}
+                      </td>
+                      <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
+                        {assignee.sentCredentials ? 'Sent' : 'Pending'}
+                      </td>
+                      <td className="p-2 sm:p-3">
+                        <button
+                          onClick={() => sendCredentials(assignee)}
+                          className="p-1 sm:p-2 bg-blue-600 text-white text-sm sm:text-base rounded-lg hover:bg-blue-700 transition-colors duration-200 w-full sm:w-auto"
+                          aria-label={`Send credentials for ${assignee.username}`}
+                        >
+                          Send
                       </button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
             </tbody>
           </table>
         </div>

@@ -51,6 +51,7 @@ export default function AllEvents() {
         <table className="w-full border-collapse text-sm sm:text-base">
           <thead>
             <tr className="bg-gray-200">
+              <th className="p-2 sm:p-3 border text-left font-medium">Id</th>
               <th className="p-2 sm:p-3 border text-left font-medium">Title</th>
               <th className="p-2 sm:p-3 border text-left font-medium">Location</th>
               <th className="p-2 sm:p-3 border text-left font-medium">Date</th>
@@ -61,6 +62,9 @@ export default function AllEvents() {
           <tbody>
             {events.map((event) => (
               <tr key={event.id} className="border-b hover:bg-gray-50">
+                <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
+                  {event.id}
+                </td>
                 <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
                   {event.title}
                 </td>

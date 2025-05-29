@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
 import Loading from '@/components/Loading';
+import jsPDF from 'jspdf';
 
 type Donation = {
   id: number;
@@ -16,12 +17,16 @@ type Donation = {
   event: { title: string };
 };
 
+type DonationWithLocalId = Donation & {
+  Id: number; 
+};
+
 export default function DeskAttendeeDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const params = useParams();
   const eventId = Number(params.eventId);
-  const [donations, setDonations] = useState<Donation[]>([]);
+  const [donations, setDonations] = useState<DonationWithLocalId[]>([]);
   const [eventTitle, setEventTitle] = useState('');
   const [donorName, setDonorName] = useState('');
   const [donorPhone, setDonorPhone] = useState('');
@@ -29,6 +34,7 @@ export default function DeskAttendeeDashboard() {
   const [amount, setAmount] = useState('');
   const [notes, setNotes] = useState('');
   const [sendSMS, setSendSMS] = useState(false);
+  const [printReceipt, setPrintReceipt] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Redirect if not Desk Attendee or unauthorized
@@ -60,8 +66,15 @@ export default function DeskAttendeeDashboard() {
         // Fetch donations
         const donationsResponse = await fetch(`/api/donations/${eventId}`);
         if (donationsResponse.ok) {
-          const data = await donationsResponse.json();
-          setDonations(data);
+          const data: Donation[] = await donationsResponse.json();
+          // Sort donations by createdAt (descending) and assign local IDs
+          const sortedDonations = data
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .map((donation, index, array) => ({
+              ...donation,
+              Id: array.length - index, // Assign local ID (1, 2, 3, ...)
+            }));
+          setDonations(sortedDonations);
           setEventTitle(data[0]?.event.title || 'Event');
         } else {
           setError('Failed to fetch donations');
@@ -76,6 +89,23 @@ export default function DeskAttendeeDashboard() {
       fetchData();
     }
   }, [eventId, status, router]);
+
+  // Print Receipt Function
+  const printReceiptForDonation = (donation: Donation) => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text(`Receipt for ${donation.donorName}`, 20, 20);
+    doc.setFontSize(12);
+    doc.text(`Event: ${eventTitle}`, 20, 30);
+    doc.text(`Donor Name: ${donation.donorName}`, 20, 40);
+    doc.text(`Phone: ${donation.donorPhone || 'N/A'}`, 20, 50);
+    doc.text(`Gift Item: ${donation.giftItem || 'N/A'}`, 20, 60);
+    doc.text(`Amount: GHS ${donation.amount != null ? donation.amount.toFixed(2) : 'N/A'}`, 20, 70);
+    // doc.text(`Notes: ${donation.notes || 'N/A'}`, 20, 80);
+    // doc.text(`Status: ${donation.status}`, 20, 90);
+    doc.text(`Date: ${new Date(donation.createdAt).toLocaleString()}`, 20, 100);
+    doc.save(`receipt_${donation.donorName}_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
 
   // Create Donation
   const createDonation = async () => {
@@ -110,15 +140,27 @@ export default function DeskAttendeeDashboard() {
             window.location.href = smsLink;
           }
         }
+        if (printReceipt) {
+          printReceiptForDonation(donation);
+        }
         // Refresh donations
-        const updatedDonations = await (await fetch(`/api/donations/${eventId}`)).json();
-        setDonations(updatedDonations);
+        const updatedDonationsResponse = await fetch(`/api/donations/${eventId}`);
+        const updatedDonations: Donation[] = await updatedDonationsResponse.json();
+        // Sort and assign local IDs
+        const sortedDonations = updatedDonations
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .map((donation, index, array) => ({
+            ...donation,
+            Id: array.length - index,
+          }));
+        setDonations(sortedDonations);
         setDonorName('');
         setDonorPhone('');
         setGiftItem('');
         setAmount('');
         setNotes('');
         setSendSMS(false);
+        setPrintReceipt(false); 
         alert('Donation created successfully!');
       } else {
         alert('Failed to create donation');
@@ -213,16 +255,29 @@ export default function DeskAttendeeDashboard() {
             />
           </div>
 
-          <label className="flex items-center text-sm sm:text-base gap-2 sm:gap-3">
-            <input
-              type="checkbox"
-              checked={sendSMS}
-              onChange={(e) => setSendSMS(e.target.checked)}
-              className="h-4 w-4 sm:h-5 sm:w-5 rounded border-gray-300 focus:ring-blue-500"
-              aria-label="Send Donor SMS"
-            />
-            Send Donor SMS
-          </label>
+          <div className="flex flex-col gap-2 sm:gap-3">
+            <label className="flex items-center text-sm sm:text-base">
+              <input
+                type="checkbox"
+                checked={sendSMS}
+                onChange={(e) => setSendSMS(e.target.checked)}
+                className="h-4 w-4 sm:h-5 sm:w-5 rounded border-gray-300 focus:ring-blue-500"
+                aria-label="Send Donor SMS"
+              />
+              <span className="ml-2">Send Donor SMS</span>
+            </label>
+            <label className="flex items-center text-sm sm:text-base">
+              <input
+                type="checkbox"
+                checked={printReceipt}
+                onChange={(e) => setPrintReceipt(e.target.checked)}
+                className="h-4 w-4 sm:h-5 sm:w-5 rounded border-gray-300 focus:ring-blue-500"
+                aria-label="Print Receipt"
+              />
+              <span className="ml-2">Print Receipt</span>
+            </label>
+          </div>
+
           <button
             onClick={createDonation}
             className="p-2 sm:p-3 bg-blue-600 text-white text-sm sm:text-base rounded-lg hover:bg-blue-700 transition-colors duration-200"
@@ -241,6 +296,7 @@ export default function DeskAttendeeDashboard() {
         <table className="w-full border-collapse text-sm sm:text-base">
           <thead>
             <tr className="bg-gray-200">
+              <th className="p-2 sm:p-3 border text-left font-medium">Id</th>
               <th className="p-2 sm:p-3 border text-left font-medium">Name</th>
               <th className="p-2 sm:p-3 border text-left font-medium">Phone</th>
               <th className="p-2 sm:p-3 border text-left font-medium">Gift Item</th>
@@ -253,6 +309,9 @@ export default function DeskAttendeeDashboard() {
           <tbody>
             {donations.map((donation) => (
               <tr key={donation.id} className="border-b hover:bg-gray-50">
+                 <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
+                  {donation.Id}
+                </td>
                 <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
                   {donation.donorName}
                 </td>
