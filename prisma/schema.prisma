@@ -25,6 +25,7 @@ model User {
   sentCredentials Boolean   @default(false)
   userCredential  UserCredential?
   @@index([role])
+  createdAt DateTime @default(now())
 }
 
 model UserCredential {
@@ -46,6 +47,7 @@ model Event {
   donations     Donation[]
   assignees     User[]      @relation("AssignedEvents")
   smsTemplates  SMSTemplate[]
+  createdAt   DateTime @default(now())
   @@index([createdById])
   @@index([date])
   @@index([type])
@@ -78,6 +80,7 @@ model SMSTemplate {
   content       String
   createdBy     User        @relation("SMSTemplateCreatedBy", fields: [createdById], references: [id]) // Name the relation
   createdById   Int
+  createdAt   DateTime @default(now())
   @@index([eventId])
   @@index([createdById])
 }

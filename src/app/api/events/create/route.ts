@@ -49,13 +49,18 @@ export async function POST(request: Request) {
 
     // Create SMS Template if provided
     if (smsTemplate) {
-      await prisma.sMSTemplate.create({
-        data: {
-          eventId: event.id,
-          content: smsTemplate,
-          createdById: Number(session.user.id),
-        },
+      const existingTemplate = await prisma.sMSTemplate.findFirst({
+        where: { eventId: event.id },
       });
+      if (!existingTemplate) {
+        await prisma.sMSTemplate.create({
+          data: {
+            eventId: event.id,
+            content: smsTemplate,
+            createdById: Number(session.user.id),
+          },
+        });
+      }
     }
 
     // Create MCs if provided and non-empty

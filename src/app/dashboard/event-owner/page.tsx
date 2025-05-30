@@ -91,20 +91,27 @@ export default function EventOwnerDashboard() {
           if (eventsData.length > 0 && !selectedEventId) {
             setSelectedEventId(eventsData[0].id);
           }
-        }
+        } else {
+        console.error('Failed to fetch events:', await eventsResponse.json());
+      }
 
         // Fetch assignees
         const assigneesResponse = await fetch('/api/roles/list');
         if (assigneesResponse.ok) {
           const assigneesData = await assigneesResponse.json();
           setAssignees(assigneesData);
-        }
+        } else {
+        console.error('Failed to fetch assignees:', await assigneesResponse.json());
+      }
 
         // Fetch user expiresAt
         const userResponse = await fetch('/api/user');
         if (userResponse.ok) {
           const userData = await userResponse.json();
           setExpiresAt(userData.expiresAt);
+          setSmsTemplate(userData.smsTemplate || '');
+        } else {
+        console.error('Failed to fetch user data:', await userResponse.json());
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -626,10 +633,14 @@ useEffect(() => {
                 <option value="Funeral" />
                 <option value="Birthday" />
               </datalist>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                Please ensure all dynamic placeholders (e.g., {'{name}'}, {'{currency}'}
+                {'{amount}'}, {'{gift}'}, {'{target}'}) are included in your SMS template.
+              </div>
               <textarea
                 value={smsTemplate}
                 onChange={(e) => setSmsTemplate(e.target.value)}
-                placeholder="SMS Template (e.g., Thank you for your generous gift. May you be richly blessed!)"
+                placeholder="SMS Template (e.g., ACKNOWLEDGEMENT. Dear {name} The Cofie family wishes to thank you for your generous donation of {currency}{amount} and {gift} to {target}. God bless you!)"
                 className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 w-full min-h-[80px] sm:min-h-[100px]"
                 aria-label="SMS Template"
               />

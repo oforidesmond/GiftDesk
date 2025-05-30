@@ -10,12 +10,16 @@ type User = {
   phone: string | null;
   role: string;
   expiresAt: string | null;
+  createdAt: string;
+};
+type UserWithLocalId = User & {
+  Id: number; // New local ID field
 };
 
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserWithLocalId[]>([]);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
@@ -31,12 +35,19 @@ export default function AdminDashboard() {
   }, [status, session, router]);
 
   // Fetch all Event Owners
-  useEffect(() => {
+ useEffect(() => {
     const fetchUsers = async () => {
       const response = await fetch('/api/users/list');
       if (response.ok) {
-        const data = await response.json();
-        setUsers(data);
+        const data: User[] = await response.json();
+        // Sort users by createdAt (descending) and assign local IDs
+        const sortedUsers = data
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .map((user, index, array) => ({
+            ...user,
+            Id: array.length - index, // Assign higher localId to newer entries
+          }));
+        setUsers(sortedUsers);
       }
     };
     fetchUsers();
@@ -62,8 +73,16 @@ export default function AdminDashboard() {
       const smsLink = `sms:${phone}?body=${encodeURIComponent(smsMessage)}`;
       window.location.href = smsLink;
       // Refresh user list
-      const updatedUsers = await (await fetch('/api/users/list')).json();
-      setUsers(updatedUsers);
+       const updatedUsersResponse = await fetch('/api/users/list');
+      const updatedUsers: User[] = await updatedUsersResponse.json();
+      // Sort and assign local IDs
+      const sortedUsers = updatedUsers
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .map((user, index, array) => ({
+          ...user,
+          Id: array.length - index, // Assign higher localId to newer entries
+        }));
+      setUsers(sortedUsers);
       setUsername('');
       setPassword('');
       setPhone('');
@@ -173,14 +192,19 @@ export default function AdminDashboard() {
           <table className="w-full border-collapse text-sm sm:text-base">
             <thead>
               <tr className="bg-gray-200">
+                <th className="p-2 sm:p-3 border text-left font-medium">Id</th>
                 <th className="p-2 sm:p-3 border text-left font-medium">Username</th>
                 <th className="p-2 sm:p-3 border text-left font-medium">Contact</th>
                 <th className="p-2 sm:p-3 border text-left font-medium">Expiration</th>
+                <th className="p-2 sm:p-3 border text-left font-medium">CreatedAt</th>
               </tr>
             </thead>
             <tbody>
               {users.map((user) => (
                 <tr key={user.id} className="border-b hover:bg-gray-50">
+                  <td className="p-2 sm:p-3 truncate max-w-[50px] sm:max-w-[70px] md:max-w-[100px]">
+                    {user.Id}
+                  </td>
                   <td className="p-2 sm:p-3 truncate max-w-[120px] sm:max-w-[200px]">
                     {user.username}
                   </td>
@@ -189,6 +213,9 @@ export default function AdminDashboard() {
                   </td>
                   <td className="p-2 sm:p-3 truncate max-w-[120px] sm:max-w-[200px]">
                     {user.expiresAt ? new Date(user.expiresAt).toLocaleString() : 'None'}
+                  </td>
+                  <td className="p-2 sm:p-3 truncate max-w-[120px] sm:max-w-[200px]">
+                    {new Date(user.createdAt).toLocaleString()}
                   </td>
                 </tr>
               ))}
