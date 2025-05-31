@@ -56,10 +56,12 @@ model Event {
 model Donation {
   id            Int         @id @default(autoincrement())
   amount        Float?
+  currency      String?
   donorName     String
   donorPhone    String?
   giftItem      String?     
-  notes         String?     
+  notes         String?  
+  donatedTo   String?   
   eventId       Int
   event         Event       @relation(fields: [eventId], references: [id])
   createdBy     User        @relation(fields: [createdById], references: [id])

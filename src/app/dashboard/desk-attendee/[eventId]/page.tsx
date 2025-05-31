@@ -11,7 +11,9 @@ type Donation = {
   donorPhone: string | null;
   giftItem: string | null;
   amount: number | null;
+  currency: string | null;
   notes: string | null;
+  donatedTo: string | null;
   status: string;
   createdAt: string;
   event: { title: string };
@@ -32,7 +34,9 @@ export default function DeskAttendeeDashboard() {
   const [donorPhone, setDonorPhone] = useState('');
   const [giftItem, setGiftItem] = useState('');
   const [amount, setAmount] = useState('');
+  const [currency, setCurrency] = useState('GHS');
   const [notes, setNotes] = useState('');
+  const [donatedTo, setDonatedTo] = useState('');
   const [sendSMS, setSendSMS] = useState(false);
   const [printReceipt, setPrintReceipt] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,20 +96,44 @@ export default function DeskAttendeeDashboard() {
 
   // Print Receipt Function
   const printReceiptForDonation = (donation: Donation) => {
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text(`Receipt for ${donation.donorName}`, 20, 20);
-    doc.setFontSize(12);
-    doc.text(`Event: ${eventTitle}`, 20, 30);
-    doc.text(`Donor Name: ${donation.donorName}`, 20, 40);
-    doc.text(`Phone: ${donation.donorPhone || 'N/A'}`, 20, 50);
-    doc.text(`Gift Item: ${donation.giftItem || 'N/A'}`, 20, 60);
-    doc.text(`Amount: GHS ${donation.amount != null ? donation.amount.toFixed(2) : 'N/A'}`, 20, 70);
-    // doc.text(`Notes: ${donation.notes || 'N/A'}`, 20, 80);
-    // doc.text(`Status: ${donation.status}`, 20, 90);
-    doc.text(`Date: ${new Date(donation.createdAt).toLocaleString()}`, 20, 100);
-    doc.save(`receipt_${donation.donorName}_${new Date().toISOString().split('T')[0]}.pdf`);
-  };
+  // Create a hidden div for printable content
+  const printDiv = document.createElement('div');
+  printDiv.className = 'print-receipt';
+  printDiv.style.position = 'absolute';
+  printDiv.style.top = '-9999px';
+  printDiv.style.left = '-9999px';
+  printDiv.style.width = '210mm'; // A4 width
+  printDiv.style.padding = '20px';
+  printDiv.style.fontFamily = 'Arial, sans-serif';
+  printDiv.style.fontSize = '12px';
+  printDiv.style.backgroundColor = '#ffffff';
+  printDiv.style.color = '#000000';
+
+  // Define receipt content with basic styling
+  printDiv.innerHTML = `
+    <div>
+      <h2 style="font-size: 16px; margin-bottom: 10px;">Receipt for ${donation.donorName}</h2>
+      <p style="margin: 5px 0;">Event: ${eventTitle}</p>
+      <p style="margin: 5px 0;">Donor Name: ${donation.donorName}</p>
+      <p style="margin: 5px 0;">Phone: ${donation.donorPhone || 'N/A'}</p>
+      <p style="margin: 5px 0;">Gift Item: ${donation.giftItem || 'N/A'}</p>
+      <p style="margin: 5px 0;">Amount: ${donation.currency || 'GHS'} ${
+        donation.amount != null ? donation.amount.toFixed(2) : 'N/A'
+      }</p>
+      <p style="margin: 5px 0;">Donated To: ${donation.donatedTo || 'N/A'}</p>
+      <p style="margin: 5px 0;">Date: ${new Date(donation.createdAt).toLocaleString()}</p>
+    </div>
+  `;
+  // Append to document
+  document.body.appendChild(printDiv);
+
+ setTimeout(() => {
+    console.log('Triggering print');
+    window.print();
+    console.log('Removing print div');
+    document.body.removeChild(printDiv);
+  }, 100);
+};
 
   // Create Donation
   const createDonation = async () => {
@@ -113,6 +141,13 @@ export default function DeskAttendeeDashboard() {
       alert('Donor Name is required');
       return;
     }
+
+    // Validate amount
+  const parsedAmount = amount ? Number.parseFloat(amount) : null;
+  if (parsedAmount !== null && (isNaN(parsedAmount) || parsedAmount < 0)) {
+    alert('Please enter a valid amount');
+    return;
+  }
 
     try {
       const response = await fetch(`/api/donations/${eventId}`, {
@@ -122,8 +157,10 @@ export default function DeskAttendeeDashboard() {
           donorName,
           donorPhone,
           giftItem,
-          amount: amount ? parseFloat(amount) : null,
+          amount: parsedAmount ? Number(parsedAmount.toFixed(2)) : null,
+          currency: currency || null,
           notes,
+          donatedTo: donatedTo || null,
           sendSMS,
         }),
       });
@@ -132,9 +169,10 @@ export default function DeskAttendeeDashboard() {
         const { donation, smsTemplate } = await response.json();
         if (sendSMS && donorPhone && smsTemplate) {
           const smsMessage = smsTemplate
-            .replace('{donorName}', donorName)
-            .replace('{amount}', amount || 'N/A')
-            .replace('{eventName}', eventTitle);
+            .replace('{name}', donorName)
+          .replace('{amount}', parsedAmount ? `${currency} ${parsedAmount.toFixed(2)}` : 'N/A')
+          .replace('{eventName}', eventTitle)
+          .replace('{target}', donation.donatedTo || 'N/A'); 
           const smsLink = `sms:${donorPhone}?body=${encodeURIComponent(smsMessage)}`;
           if (confirm(`Send SMS to ${donorPhone}?`)) {
             window.location.href = smsLink;
@@ -158,12 +196,15 @@ export default function DeskAttendeeDashboard() {
         setDonorPhone('');
         setGiftItem('');
         setAmount('');
+        setCurrency('GHS');
         setNotes('');
+        setDonatedTo('');
         setSendSMS(false);
         setPrintReceipt(false); 
         alert('Donation created successfully!');
       } else {
-        alert('Failed to create donation');
+        const errorData = await response.json();
+        alert(`Failed to create donation: ${errorData.error || 'Unknown error'}`);
       }
     } catch (err) {
       alert('Error creating donation');
@@ -218,6 +259,19 @@ export default function DeskAttendeeDashboard() {
 
           <div className="flex flex-col">
             <label className="block text-sm sm:text-base font-medium text-gray-700 mb-1">
+              Donated To
+            </label>
+            <input
+              type="text"
+              value={donatedTo}
+              onChange={(e) => setDonatedTo(e.target.value)}
+              className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+              aria-label="Donated To"
+            />
+          </div>
+
+          <div className="flex flex-col">
+            <label className="block text-sm sm:text-base font-medium text-gray-700 mb-1">
               Gift Item
             </label>
             <input
@@ -229,18 +283,38 @@ export default function DeskAttendeeDashboard() {
             />
           </div>
 
-          <div className="flex flex-col">
-            <label className="block text-sm sm:text-base font-medium text-gray-700 mb-1">
-              Amount
-            </label>
-            <input
-              type="number"
-              value={amount}
-              min={1}
-              onChange={(e) => setAmount(e.target.value)}
-              className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
-              aria-label="Donation Amount"
-            />
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col flex-1">
+              <label className="block text-sm sm:text-base font-medium text-gray-700 mb-1">
+                Amount
+              </label>
+              <input
+                type="text"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                min="0"
+                step="0.01" // Allow up to 2 decimal places
+                className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+                aria-label="Donation Amount"
+                inputMode='decimal'
+              />
+            </div>
+            <div className="flex flex-col flex-1">
+              <label className="block text-sm sm:text-base font-medium text-gray-700 mb-1">
+                Currency
+              </label>
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white w-full"
+                aria-label="Currency"
+              >
+                <option value="GHS">GHS - Ghanaian Cedi</option>
+                <option value="USD">USD - US Dollar</option>
+                <option value="GBP">GBP - British Pound</option>
+                <option value="EUR">EUR - Euro</option>
+              </select>
+            </div>
           </div>
 
           <div className="flex flex-col">
@@ -254,6 +328,7 @@ export default function DeskAttendeeDashboard() {
               aria-label="Donation Notes"
             />
           </div>
+          
 
           <div className="flex flex-col gap-2 sm:gap-3">
             <label className="flex items-center text-sm sm:text-base">
@@ -301,8 +376,9 @@ export default function DeskAttendeeDashboard() {
               <th className="p-2 sm:p-3 border text-left font-medium">Phone</th>
               <th className="p-2 sm:p-3 border text-left font-medium">Gift Item</th>
               <th className="p-2 sm:p-3 border text-left font-medium">Amount</th>
+              <th className="p-2 sm:p-3 border text-left font-medium">To</th>
               <th className="p-2 sm:p-3 border text-left font-medium">Notes</th>
-              <th className="p-2 sm:p-3 border text-left font-medium">Status</th>
+              {/* <th className="p-2 sm:p-3 border text-left font-medium">Status</th> */}
               <th className="p-2 sm:p-3 border text-left font-medium">Created At</th>
             </tr>
           </thead>
@@ -322,14 +398,17 @@ export default function DeskAttendeeDashboard() {
                   {donation.giftItem || 'N/A'}
                 </td>
                 <td className="p-2 sm:p-3 truncate max-w-[80px] sm:max-w-[100px] md:max-w-[120px]">
-                  {donation.amount != null ? donation.amount.toFixed(2) : 'N/A'}
+                {donation.amount != null ? `${donation.currency || 'GHS'} ${donation.amount.toFixed(2)}` : 'N/A'}
                 </td>
+                <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
+                {donation.donatedTo || 'N/A'}
+                </td> 
                 <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
                   {donation.notes || 'N/A'}
                 </td>
-                <td className="p-2 sm:p-3 truncate max-w-[80px] sm:max-w-[100px] md:max-w-[120px]">
+                {/* <td className="p-2 sm:p-3 truncate max-w-[80px] sm:max-w-[100px] md:max-w-[120px]">
                   {donation.status}
-                </td>
+                </td> */}
                 <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
                   {new Date(donation.createdAt).toLocaleString()}
                 </td>

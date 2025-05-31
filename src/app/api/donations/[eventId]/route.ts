@@ -39,7 +39,9 @@ export async function GET(
         donorPhone: true,
         giftItem: true,
         amount: true,
+        currency: true,
         notes: true,
+        donatedTo: true,
         status: true,
         createdAt: true,
         event: { select: { title: true } },
@@ -81,15 +83,33 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized for this event' }, { status: 403 });
     }
 
-    const { donorName, donorPhone, giftItem, amount, notes, sendSMS } = await request.json();
+    const { donorName, donorPhone, giftItem, amount, currency, notes, donatedTo, sendSMS } = await request.json();
+
+     if (!donorName) {
+      return NextResponse.json({ error: 'Donor Name is required' }, { status: 400 });
+    }
+
+    // Validate amount
+    const parsedAmount = amount != null ? Number.parseFloat(amount) : null;
+    if (parsedAmount != null && (isNaN(parsedAmount) || parsedAmount < 0)) {
+      return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
+    }
+
+    // Validate currency
+    const validCurrencies = ['GHS', 'USD', 'GBP', 'EUR'];
+    if (currency && !validCurrencies.includes(currency)) {
+      return NextResponse.json({ error: 'Invalid currency' }, { status: 400 });
+    }
 
     const donation = await prisma.donation.create({
       data: {
         donorName,
-        donorPhone,
-        giftItem,
-        amount: Number(amount),
-        notes,
+       donorPhone: donorPhone || null,
+        giftItem: giftItem || null,
+        amount: parsedAmount != null ? Number(parsedAmount.toFixed(2)) : null, // Ensure 2 decimal places
+        currency: currency || null, // Store currency
+        notes: notes || null,
+        donatedTo: donatedTo || null,
         eventId,
         createdById: Number(session.user.id),
         status: 'PENDING',
