@@ -634,13 +634,12 @@ useEffect(() => {
                 <option value="Birthday" />
               </datalist>
               <div className="text-sm text-gray-500 dark:text-gray-400">
-                Please ensure all dynamic placeholders (e.g., {'{name}'}, {'{currency}'}
-                {'{amount}'}, {'{gift}'}, {'{target}'}) are included in your SMS template.
+                Please ensure all dynamic placeholders ({'{donorName}'}, {'{amount}'}, {'{gift}'}, {'{target}'}) are included in your SMS template.
               </div>
               <textarea
                 value={smsTemplate}
                 onChange={(e) => setSmsTemplate(e.target.value)}
-                placeholder="SMS Template (e.g., ACKNOWLEDGEMENT. Dear {name} The Cofie family wishes to thank you for your generous donation of {currency}{amount} and {gift} to {target}. God bless you!)"
+                placeholder="SMS Template (e.g., ACKNOWLEDGEMENT. Dear {donorName} The Cofie family wishes to thank you for your generous donation of {amount} {gift} to {target}. God bless you!)"
                 className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 w-full min-h-[80px] sm:min-h-[100px]"
                 aria-label="SMS Template"
               />

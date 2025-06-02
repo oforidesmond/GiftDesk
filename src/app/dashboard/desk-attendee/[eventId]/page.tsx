@@ -128,11 +128,9 @@ export default function DeskAttendeeDashboard() {
   document.body.appendChild(printDiv);
 
  setTimeout(() => {
-    console.log('Triggering print');
     window.print();
-    console.log('Removing print div');
     document.body.removeChild(printDiv);
-  }, 100);
+  }, 200);
 };
 
   // Create Donation
@@ -165,14 +163,41 @@ export default function DeskAttendeeDashboard() {
         }),
       });
 
-      if (response.ok) {
+        if (response.ok) {
         const { donation, smsTemplate } = await response.json();
         if (sendSMS && donorPhone && smsTemplate) {
-          const smsMessage = smsTemplate
-            .replace('{name}', donorName)
-          .replace('{amount}', parsedAmount ? `${currency} ${parsedAmount.toFixed(2)}` : 'N/A')
-          .replace('{eventName}', eventTitle)
-          .replace('{target}', donation.donatedTo || 'N/A'); 
+          let smsMessage = smsTemplate;
+
+          // Replace placeholders with values or remove them if missing
+          smsMessage = smsMessage.replace('{donorName}', donorName); 
+          smsMessage = smsMessage.replace('{eventName}', eventTitle);
+
+          // Handle optional fields
+          if (parsedAmount) {
+            smsMessage = smsMessage.replace('{amount}', `${currency} ${parsedAmount.toFixed(2)}`);
+          } else {
+            smsMessage = smsMessage.replace(' {amount}', '').replace('{amount}', '');
+          }
+
+          if (giftItem) {
+            smsMessage = smsMessage.replace('{gift}', giftItem);
+          } else {
+            smsMessage = smsMessage.replace(' {gift}', '').replace('{gift}', '');
+          }
+
+          if (donation.donatedTo) {
+            smsMessage = smsMessage.replace('{target}', donation.donatedTo);
+          } else {
+            smsMessage = smsMessage.replace(' {target}', '').replace('{target}', '');
+
+            // Clean up any leftover punctuation or spaces
+            smsMessage = smsMessage
+              .replace(/\s{2,}/g, ' ')
+              .replace(/,\s*,/g, ',') 
+              .replace(/,\s*$/, '')
+              .trim();
+          }
+
           const smsLink = `sms:${donorPhone}?body=${encodeURIComponent(smsMessage)}`;
           if (confirm(`Send SMS to ${donorPhone}?`)) {
             window.location.href = smsLink;
