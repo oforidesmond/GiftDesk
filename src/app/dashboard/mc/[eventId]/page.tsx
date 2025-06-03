@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
-import Loading from '@/components/Loading';
+// import Loading from '@/components/Loading';
+import { useLoading } from '@/context/LoadingContext';
 
 type Donation = {
   id: number;
@@ -24,6 +25,7 @@ export default function MCDashboard() {
   const [donations, setDonations] = useState<Donation[]>([]);
   const [eventTitle, setEventTitle] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const {setLoading} = useLoading();
 
   // Redirect if not MC or unauthorized
   useEffect(() => {
@@ -37,6 +39,7 @@ export default function MCDashboard() {
     let intervalId: NodeJS.Timeout;
     const fetchData = async () => {
       try {
+        setLoading(true);
         // Verify event assignment
         const eventsResponse = await fetch('/api/user/events');
         if (!eventsResponse.ok) {
@@ -69,6 +72,9 @@ export default function MCDashboard() {
         setError('Error fetching data');
         router.push('/dashboard');
       }
+      finally{
+        setLoading(false);
+      }
     };
     if (eventId && status === 'authenticated') {
       fetchData();
@@ -78,7 +84,7 @@ export default function MCDashboard() {
   }, [eventId, status, router]);
 
   if (status === 'loading') {
-   return <Loading />;
+   return null;
   }
 
    if (error) {

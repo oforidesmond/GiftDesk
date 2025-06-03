@@ -4,7 +4,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import Loading from '@/components/Loading';
+// import Loading from '@/components/Loading';
 import { useLoading } from '@/context/LoadingContext';
 
 type Assignee = {
@@ -32,10 +32,13 @@ type Donation = {
   donorName: string;
   donorPhone: string | null;
   giftItem: string | null;
-  amount: number;
+  donatedTo: string | null;
+  amount: number | null;
+  currency: string | null;
   notes: string | null;
   status: string;
   createdAt: string;
+  event: { title: string };
 };
 
 export default function EventOwnerDashboard() {
@@ -278,6 +281,7 @@ export default function EventOwnerDashboard() {
       );
       // Update server-side
       try {
+        setLoading(true)
         await fetch('/api/roles/update', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -286,6 +290,9 @@ export default function EventOwnerDashboard() {
       } catch (error) {
         console.error('Error updating credentials status:', error);
          setError('Failed to update credentials status');
+      }
+      finally{
+        setLoading(false);
       }
     }
   };
@@ -316,6 +323,7 @@ export default function EventOwnerDashboard() {
         )
       );
       try {
+        setLoading(true);
         await Promise.all(
           targetAssignees.map((a) =>
             fetch('/api/roles/update', {
@@ -329,6 +337,7 @@ export default function EventOwnerDashboard() {
         console.error('Error updating credentials status:', error);
         setError('Failed to update credentials status');
       }
+      setLoading(false);
     }
   };
 
@@ -340,6 +349,7 @@ export default function EventOwnerDashboard() {
     }
 
     try {
+      setLoading(true);
       const response = await fetch(`/api/donations/${selectedEventId}`);
       if (!response.ok) {
         setError('Failed to fetch donations');
@@ -349,32 +359,63 @@ export default function EventOwnerDashboard() {
       const donations: Donation[] = await response.json();
       const event = events.find((e) => e.id === selectedEventId);
 
+      // Calculate totals by currency
+    const currencyTotals = donations.reduce((acc, d) => {
+      if (d.amount != null && d.currency) {
+        acc[d.currency] = (acc[d.currency] || 0) + d.amount;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
       const doc = new jsPDF();
       doc.setFontSize(16);
       doc.text(`Donations for ${event?.title || 'Event'}`, 20, 20);
 
+      // Prepare table data
       const tableData = donations.map((d) => [
         d.donorName,
-        d.donorPhone || 'N/A',
-        d.giftItem || 'N/A',
-        `GHS${d.amount.toFixed(2)}`,
-        d.notes || 'N/A',
-        d.status,
+        d.donorPhone || '',
+      d.giftItem || '',
+      d.amount != null ? `${d.currency || 'GHS'} ${d.amount.toFixed(2)}` : '',
+      d.donatedTo || '', 
+        d.notes || '',
+        // d.status,
         new Date(d.createdAt).toLocaleString(),
       ]);
 
+      // Generate donations table
       autoTable(doc, {
         startY: 30,
-        head: [['Donor Name', 'Phone', 'Gift Item', 'Amount', 'Notes', 'Status', 'Created At']],
+        head: [['Donor Name', 'Phone', 'Gift Item', 'Amount', 'DonatedTo', 'Notes', 'Created At']],
         body: tableData,
         theme: 'striped',
         headStyles: { fillColor: [66, 139, 202] },
+        margin : {bottom: 40},
       });
+
+      // Add currency totals
+    let finalY = (doc as any).lastAutoTable.finalY || 30; // Get Y position after table
+    doc.setFontSize(12);
+    doc.text('Total Donations by Currency:', 20, finalY + 10);
+
+    let offsetY = finalY + 20;
+    Object.entries(currencyTotals).forEach(([currency, total]) => {
+      doc.text(`${currency}: ${total.toFixed(2)}`, 20, offsetY);
+      offsetY += 10;
+    });
+
+    // Add note if no donations
+    if (Object.keys(currencyTotals).length === 0) {
+      doc.text('No monetary donations recorded.', 20, offsetY);
+    }
 
       doc.save(`donations_${event?.title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
       setError('Error generating PDF');
+    }
+    finally{
+      setLoading(false);
     }
   };
 

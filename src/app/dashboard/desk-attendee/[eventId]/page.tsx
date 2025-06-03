@@ -2,8 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
-import Loading from '@/components/Loading';
-import jsPDF from 'jspdf';
+import { useLoading } from '@/context/LoadingContext';
+// import jsPDF from 'jspdf';
 
 type Donation = {
   id: number;
@@ -40,6 +40,7 @@ export default function DeskAttendeeDashboard() {
   const [sendSMS, setSendSMS] = useState(false);
   const [printReceipt, setPrintReceipt] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const {setLoading} = useLoading();
 
   // Redirect if not Desk Attendee or unauthorized
   useEffect(() => {
@@ -53,6 +54,7 @@ export default function DeskAttendeeDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setLoading(true);
         // Verify event assignment
         const eventsResponse = await fetch('/api/user/events');
         if (!eventsResponse.ok) {
@@ -87,6 +89,8 @@ export default function DeskAttendeeDashboard() {
       } catch (err) {
         setError('Error fetching data');
         router.push('/dashboard');
+      } finally {
+        setLoading(false)
       }
     };
     if (eventId && status === 'authenticated') {
@@ -148,6 +152,7 @@ export default function DeskAttendeeDashboard() {
   }
 
     try {
+      setLoading(true);
       const response = await fetch(`/api/donations/${eventId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -234,10 +239,13 @@ export default function DeskAttendeeDashboard() {
     } catch (err) {
       alert('Error creating donation');
     }
+    finally {
+      setLoading(false);
+    }
   };
 
   if (status === 'loading') {
-    return <Loading />;
+    return null;
   }
 
   if (error) {
