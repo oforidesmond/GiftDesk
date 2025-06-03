@@ -2,13 +2,14 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import Loading from '@/components/Loading';
+import { useLoading } from '@/context/LoadingContext';
 
 export default function SelectEvent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [events, setEvents] = useState<{ id: number, title: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const {setLoading} = useLoading()
 
   // Redirect if not MC or Desk Attendee
   useEffect(() => {
@@ -21,6 +22,7 @@ export default function SelectEvent() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
+        setLoading(true);
         const response = await fetch('/api/user/events');
         if (response.ok) {
           const data = await response.json();
@@ -39,6 +41,9 @@ export default function SelectEvent() {
         console.error('Error fetching events:', err);
         setError('Error fetching events');
       }
+      finally{
+        setLoading(false);
+      }
     };
     if (status === 'authenticated') {
       fetchEvents();
@@ -52,7 +57,7 @@ export default function SelectEvent() {
   };
 
   if (status === 'loading') {
-    return <Loading />;
+    return null;
   }
 
   if (error) {

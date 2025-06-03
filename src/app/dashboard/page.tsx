@@ -1,5 +1,5 @@
 'use client';
-import Loading from '@/components/Loading';
+import { useLoading } from '@/context/LoadingContext';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -9,12 +9,14 @@ export default function Dashboard() {
   const router = useRouter();
   const [assignedEvents, setAssignedEvents] = useState<{ id: number; title: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const {setLoading} = useLoading();
 
   // Fetch assigned events for MC or Desk Attendee
   useEffect(() => {
     const fetchAssignedEvents = async () => {
       if (status === 'authenticated' && ['MC', 'DESK_ATTENDEE'].includes(session?.user?.role || '')) {
         try {
+          setLoading(true);
           const response = await fetch('/api/user/events');
           if (response.ok) {
             const events = await response.json();
@@ -28,6 +30,9 @@ export default function Dashboard() {
         } catch (err) {
           console.error('Error fetching events:', err);
           setError('Error fetching events');
+        }
+        finally{
+          setLoading(false);
         }
       }
     };
@@ -80,7 +85,7 @@ export default function Dashboard() {
   }, [status, session, assignedEvents, error, router]);
 
   if (status === 'loading') {
-    return <Loading />;
+    return null;
   }
 
   if (error) {
