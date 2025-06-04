@@ -80,13 +80,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session || session.user.role !== 'EVENT_OWNER') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const eventId = parseInt(params.id);
+  const { id } = await params;
+  const eventId = parseInt(id);
   try {
     const event = await prisma.event.findUnique({ where: { id: eventId } });
     if (!event) {
