@@ -8,7 +8,7 @@ export default function Loading() {
   if (!isLoading) return null;
 
  return (
-    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-40">
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
       <div className="flex items-center space-x-3 bg-transparent p-4 rounded-lg">
         <div className="relative">
           <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 sm:border-[5px] border-4 border-gray-700 border-t-transparent rounded-full animate-spin"></div>

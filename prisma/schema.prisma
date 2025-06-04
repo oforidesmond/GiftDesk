@@ -63,7 +63,7 @@ model Donation {
   notes         String?  
   donatedTo   String?   
   eventId       Int
-  event         Event       @relation(fields: [eventId], references: [id])
+  event         Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
   createdBy     User        @relation(fields: [createdById], references: [id])
   createdById   Int
   createdAt     DateTime    @default(now())
@@ -78,7 +78,7 @@ model Donation {
 model SMSTemplate {
   id            Int         @id @default(autoincrement())
   eventId       Int
-  event         Event       @relation(fields: [eventId], references: [id])
+  event         Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
   content       String
   createdBy     User        @relation("SMSTemplateCreatedBy", fields: [createdById], references: [id]) // Name the relation
   createdById   Int

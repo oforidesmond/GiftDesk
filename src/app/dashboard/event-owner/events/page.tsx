@@ -24,6 +24,8 @@ interface EditForm {
   type: string;
   mcs: Assignee[];
   deskAttendees: Assignee[];
+  removedMcs?: number[];
+  removedDeskAttendees?: number[];
 }
 
 export default function AllEvents() {
@@ -33,13 +35,15 @@ export default function AllEvents() {
   const [events, setEvents] = useState<Event[]>([]);
   const [editEvent, setEditEvent] = useState<Event | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<EditForm>({
     title: '',
     location: '',
     date: '',
     type: '',
-    mcs: [{ username: '', password: '', phone: '' }] as Assignee[],
-    deskAttendees: [{ username: '', password: '', phone: '' }] as Assignee[],
+    mcs: [{ username: '', password: '', phone: '' }],
+    deskAttendees: [{ username: '', password: '', phone: '' }],
+    removedMcs: [],
+    removedDeskAttendees: [],
   });
     const [changedFields, setChangedFields] = useState<Set<keyof EditForm>>(new Set());
 
@@ -98,7 +102,8 @@ export default function AllEvents() {
       if (response.ok) {
         setEvents(events.filter((event) => event.id !== eventId));
       } else {
-        alert('Failed to delete event');
+      const errorData = await response.json();
+      alert(`Failed to delete event: ${errorData.details || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error deleting event:', error);
@@ -126,75 +131,92 @@ export default function AllEvents() {
   };
 
   // Open Edit Modal
-  const handleEdit = async (event: Event) => {
-    const details = await fetchEventDetails(event.id);
-    setEditEvent(event);
-    setEditForm({
-      title: event.title,
-      location: event.location || '',
-      date: event.date ? new Date(event.date).toISOString().slice(0, 16) : '',
-      type: event.type,
-      mcs: details?.mcs || [{ username: '', password: '', phone: '' }],
-      deskAttendees: details?.deskAttendees || [{ username: '', password: '', phone: '' }],
-    });
-    setChangedFields(new Set());
-    setShowEditModal(true);
-  };
+ const handleEdit = async (event: Event) => {
+  const details = await fetchEventDetails(event.id);
+  setEditEvent(event);
+  setEditForm({
+    title: event.title,
+    location: event.location || '',
+    date: event.date ? new Date(event.date).toISOString().slice(0, 16) : '',
+    type: event.type,
+    mcs:
+      details?.mcs?.map((mc: { id: number; username: string; phone: string }) => ({
+        id: mc.id,
+        username: mc.username,
+        phone: mc.phone,
+        password: '', // Password not returned from API for security
+      })) || [{ username: '', password: '', phone: '' }],
+    deskAttendees:
+      details?.deskAttendees?.map((da: { id: number; username: string; phone: string }) => ({
+        id: da.id,
+        username: da.username,
+        phone: da.phone,
+        password: '',
+      })) || [{ username: '', password: '', phone: '' }],
+    removedMcs: [],
+    removedDeskAttendees: [],
+  });
+  setChangedFields(new Set());
+  setShowEditModal(true);
+};
 
    // Update Event
-  const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editEvent) return;
+const handleUpdate = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!editEvent) return;
 
-    try {
-      setLoading(true);
-      // Prepare only changed fields for the update
+  try {
+        setLoading(true);
     const updateData: Partial<EditForm> = {};
-      changedFields.forEach((field: keyof EditForm) => {
-        if (field === 'mcs' || field === 'deskAttendees') {
-          updateData[field] = editForm[field].filter(
-            (item) => item && item.username && item.password && item.phone
-          );
-        } else {
+    changedFields.forEach((field: keyof EditForm) => {
+      if (field === 'mcs' || field === 'deskAttendees') {
+        updateData[field] = editForm[field].filter(
+          (item) => item && item.username && item.password && item.phone
+        );
+      } else if (field === 'removedMcs' || field === 'removedDeskAttendees') {
+        // Only include if the array exists and has elements
+        if (editForm[field]?.length) {
           updateData[field] = editForm[field];
         }
-      });
-       console.log('Update data:', updateData);
-
-      // Only send request if there are changes
-      if (Object.keys(updateData).length === 0) {
-        setShowEditModal(false);
-        setEditEvent(null);
-        return;
-      }
-
-      const response = await fetch(`/api/events/${editEvent.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...updateData,
-          // Ensure date is formatted correctly
-          date: updateData.date ? new Date(updateData.date).toISOString() : undefined,
-          // Ensure location is null if empty
-          location: updateData.location === '' ? null : updateData.location,
-        }),
-      });
-
-      if (response.ok) {
-        await fetchEvents();
-        setShowEditModal(false);
-        setEditEvent(null);
-        setChangedFields(new Set<keyof EditForm>());
       } else {
-        alert('Failed to update event');
+        // Handle string fields: title, location, date, type
+        updateData[field] = editForm[field] as string;
       }
-    } catch (error) {
-      console.error('Error updating event:', error);
-      alert('Error updating event');
-    } finally {
-      setLoading(false);
+    });
+
+    console.log('Update data:', updateData);
+
+    if (Object.keys(updateData).length === 0) {
+      setShowEditModal(false);
+      setEditEvent(null);
+      return;
     }
-  };
+    const response = await fetch(`/api/events/${editEvent.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...updateData,
+        date: updateData.date ? new Date(updateData.date).toISOString() : undefined,
+        location: updateData.location === '' ? null : updateData.location,
+      }),
+    });
+
+    if (response.ok) {
+      await fetchEvents();
+      setShowEditModal(false);
+      setEditEvent(null);
+        setEditForm((prev) => ({ ...prev, removedMcs: [], removedDeskAttendees: [] }));
+      setChangedFields(new Set<keyof EditForm>());
+    } else {
+      alert('Failed to update event');
+    }
+  } catch (error) {
+    console.error('Error updating event:', error);
+    alert('Error updating event');
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Handle Form Input Changes
    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -233,13 +255,17 @@ const addMc = () => {
     setChangedFields((prev) => new Set(prev).add('mcs'));
   };
 
-  const removeMc = (index: number) => {
-    setEditForm((prev) => ({
-      ...prev,
-      mcs: prev.mcs.filter((_, i) => i !== index),
-    }));
-    setChangedFields((prev) => new Set(prev).add('mcs'));
-  };
+    const removeMc = (index: number) => {
+      setEditForm((prev) => {
+        const removedMc = prev.mcs[index];
+        const newMcs = prev.mcs.filter((_, i) => i !== index);
+        const newRemovedMcs = removedMc.id
+          ? [...(prev.removedMcs || []), removedMc.id]
+          : prev.removedMcs || [];
+        return { ...prev, mcs: newMcs, removedMcs: newRemovedMcs };
+      });
+  setChangedFields((prev) => new Set(prev).add('mcs').add('removedMcs'));
+    };
 
    const addDeskAttendee = () => {
    setEditForm((prev) => {
@@ -254,12 +280,16 @@ const addMc = () => {
 };
 
  const removeDeskAttendee = (index: number) => {
-    setEditForm((prev) => ({
-      ...prev,
-      deskAttendees: prev.deskAttendees.filter((_, i) => i !== index),
-    }));
-    setChangedFields((prev) => new Set(prev).add('deskAttendees'));
-  };
+  setEditForm((prev) => {
+    const removedDa = prev.deskAttendees[index];
+    const newDeskAttendees = prev.deskAttendees.filter((_, i) => i !== index);
+    const newRemovedDeskAttendees = removedDa.id
+      ? [...(prev.removedDeskAttendees || []), removedDa.id]
+      : prev.removedDeskAttendees || [];
+    return { ...prev, deskAttendees: newDeskAttendees, removedDeskAttendees: newRemovedDeskAttendees };
+  });
+  setChangedFields((prev) => new Set(prev).add('deskAttendees').add('removedDeskAttendees'));
+};
 
   // Close Modal
   const handleCloseModal = () => {
@@ -339,7 +369,7 @@ const addMc = () => {
 {/* Edit Event Modal */}
 {showEditModal && (
   <div
-    className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 overflow-y-auto"
+    className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-40 overflow-y-auto"
     onClick={handleBackdropClick}
   >
     <div
