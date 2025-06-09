@@ -3,6 +3,7 @@ import {prisma} from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import bcrypt from 'bcrypt';
+import { Prisma } from '@prisma/client';
 
 interface User {
   id: number;
@@ -29,6 +30,7 @@ interface UpdateData {
   deskAttendees?: { username: string; password: string; phone: string }[];
   removedMcs?: number[];
   removedDeskAttendees?: number[];
+   smsTemplate?: string;
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -43,7 +45,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   try {
     const event = await prisma.event.findUnique({
       where: { id: eventId },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        location: true,
+        date: true,
+        type: true,
         assignees: {
           select: {
             id: true,
@@ -51,6 +58,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
             phone: true,
             role: true,
           },
+        },
+        smsTemplates: {
+          select: {
+            id: true,
+            content: true, 
+            createdAt: true,
+          },
+          orderBy: {
+            createdAt: 'desc', 
+          },
+          take: 1, 
         },
       },
     });
@@ -73,6 +91,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
           username: user.username,
           phone: user.phone || '',
         })),
+        smsTemplate: event.smsTemplates[0]?.content || '',
     });
   } catch (error) {
     console.error('Error fetching event:', error);
@@ -113,19 +132,16 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Await params to resolve the dynamic route parameter
   const { id } = await params;
   const eventId = parseInt(id);
   const data: UpdateData = await request.json();
 
-  // Validate session.user.id
   const createdById = parseInt(session.user.id);
   if (isNaN(createdById)) {
     console.error('Invalid session.user.id:', session.user.id);
     return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
   }
 
-  // Verify createdById exists
   const creator = await prisma.user.findUnique({
     where: { id: createdById },
   });
@@ -135,14 +151,6 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   }
 
   try {
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-      include: { assignees: true },
-    });
-    if (!event) {
-      return NextResponse.json({ error: 'Event not found' }, { status: 404 });
-    }
-
     // Prepare update data for the event
     const updateEventData: any = {};
     if (data.title) updateEventData.title = data.title;
@@ -150,102 +158,128 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (data.date !== undefined) updateEventData.date = data.date ? new Date(data.date) : null;
     if (data.type) updateEventData.type = data.type;
 
-    const updateAssignees = async (
-  role: 'MC' | 'DESK_ATTENDEE',
-  newAssignees: { username: string; password: string; phone: string }[] | undefined,
-  removedAssigneeIds: number[] | undefined
-) => {
-  if (!newAssignees || newAssignees.length === 0) {
-    console.log(`No ${role} assignees provided, checking for removals`);
-  } else {
-    console.log(`Processing ${role} assignees:`, newAssignees);
-  }
+    // Validate smsTemplate
+    const smsTemplate = data.smsTemplate !== undefined && data.smsTemplate !== null ? data.smsTemplate : undefined;
 
-  // Fetch existing assignees for this role
-  const existingAssignees = event.assignees.filter((user: User) => user.role === role);
-
-  // Create or update assignees
-  const assigneePromises = newAssignees
-    ?.filter((assignee) => assignee && assignee.username && assignee.password && assignee.phone)
-    .map(async (assignee) => {
-      if (!assignee) {
-        console.log('Skipping null assignee');
-        return null;
+    // Use a transaction to update event and create SMSTemplate
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // Update event if there are changes
+      if (Object.keys(updateEventData).length > 0) {
+        await tx.event.update({
+          where: { id: eventId },
+          data: updateEventData,
+        });
       }
 
-      const existingUser = existingAssignees.find((u: User) => u.username === assignee.username);
-      if (existingUser) {
-        const updates: any = {};
-        if (assignee.phone !== existingUser.phone) updates.phone = assignee.phone;
-        if (assignee.password) {
-          const hashedPassword = await bcrypt.hash(assignee.password, 10);
-          updates.password = hashedPassword;
-          await prisma.userCredential.updateMany({
-            where: { userId: existingUser.id },
-            data: { password: assignee.password }, // Note: Address plain-text storage
-          });
-        }
-        if (Object.keys(updates).length > 0) {
-          await prisma.user.update({
-            where: { id: existingUser.id },
-            data: updates,
-          });
-        }
-        return existingUser;
-      } else {
-        const hashedPassword = await bcrypt.hash(assignee.password, 10);
-        console.log(`Creating new user for ${assignee.username} with createdById: ${createdById}`);
-        try {
-          const newUser = await prisma.user.create({
-            data: {
-              username: assignee.username,
-              password: hashedPassword,
-              phone: assignee.phone,
-              role,
-              createdById,
-              assignedEvents: { connect: { id: eventId } },
-            },
-          });
-          await prisma.userCredential.create({
-            data: { userId: newUser.id, password: assignee.password }, // Note: Address plain-text storage
-          });
-          return newUser;
-        } catch (error) {
-          console.error(`Failed to create user ${assignee.username}:`, error);
-          throw error;
-        }
+      // Create new SMSTemplate if provided
+      if (smsTemplate !== undefined) {
+        await tx.sMSTemplate.create({
+          data: {
+            content: smsTemplate,
+            eventId: eventId,
+            createdById: createdById,
+            createdAt: new Date(),
+          },
+        });
       }
-    }) || [];
 
-  const updatedUsers = (await Promise.all(assigneePromises)).filter(
-    (user: User | null): user is User => user !== null
-  );
+      // Update assignees
+      const updateAssignees = async (
+        role: 'MC' | 'DESK_ATTENDEE',
+        newAssignees: { username: string; password: string; phone: string }[] | undefined,
+        removedAssigneeIds: number[] | undefined
+      ) => {
+        if (!newAssignees || newAssignees.length === 0) {
+          console.log(`No ${role} assignees provided, checking for removals`);
+        } else {
+          console.log(`Processing ${role} assignees:`, newAssignees);
+        }
 
-  console.log(`Updated ${role} users:`, updatedUsers.map((u: User) => u.username));
+        const event = await tx.event.findUnique({
+          where: { id: eventId },
+          include: { assignees: true },
+        });
+        if (!event) {
+          throw new Error('Event not found');
+        }
 
-  // Disconnect only explicitly removed assignees
-  if (removedAssigneeIds && removedAssigneeIds.length > 0) {
-    console.log(`Disconnecting ${role} users with IDs:`, removedAssigneeIds);
-    await prisma.event.update({
-      where: { id: eventId },
-      data: { assignees: { disconnect: removedAssigneeIds.map((id) => ({ id })) } },
+        const existingAssignees = event.assignees.filter((user: User) => user.role === role);
+
+        const assigneePromises = newAssignees
+          ?.filter((assignee) => assignee && assignee.username && assignee.password && assignee.phone)
+          .map(async (assignee) => {
+            if (!assignee) {
+              console.log('Skipping null assignee');
+              return null;
+            }
+
+            const existingUser = existingAssignees.find((u: User) => u.username === assignee.username);
+            if (existingUser) {
+              const updates: any = {};
+              if (assignee.phone !== existingUser.phone) updates.phone = assignee.phone;
+              if (assignee.password) {
+                const hashedPassword = await bcrypt.hash(assignee.password, 10);
+                updates.password = hashedPassword;
+                await tx.userCredential.updateMany({
+                  where: { userId: existingUser.id },
+                  data: { password: assignee.password }, // Note: Address plain-text storage
+                });
+              }
+              if (Object.keys(updates).length > 0) {
+                await tx.user.update({
+                  where: { id: existingUser.id },
+                  data: updates,
+                });
+              }
+              return existingUser;
+            } else {
+              const hashedPassword = await bcrypt.hash(assignee.password, 10);
+              console.log(`Creating new user for ${assignee.username} with createdById: ${createdById}`);
+              const newUser = await tx.user.create({
+                data: {
+                  username: assignee.username,
+                  password: hashedPassword,
+                  phone: assignee.phone,
+                  role,
+                  createdById,
+                  assignedEvents: { connect: { id: eventId } },
+                },
+              });
+              await tx.userCredential.create({
+                data: { userId: newUser.id, password: assignee.password }, // Note: Address plain-text storage
+              });
+              return newUser;
+            }
+          }) || [];
+
+        const updatedUsers = (await Promise.all(assigneePromises)).filter(
+          (user: User | null): user is User => user !== null
+        );
+
+        // console.log(`Updated ${role} users:`, updatedUsers.map((u: User) => u.username));
+
+        if (removedAssigneeIds && removedAssigneeIds.length > 0) {
+          console.log(`Disconnecting ${role} users with IDs:`, removedAssigneeIds);
+          await tx.event.update({
+            where: { id: eventId },
+            data: { assignees: { disconnect: removedAssigneeIds.map((id) => ({ id })) } },
+          });
+        }
+
+        return updatedUsers;
+      };
+
+      if (data.mcs || data.removedMcs) {
+        await updateAssignees('MC', data.mcs || [], data.removedMcs);
+      }
+      if (data.deskAttendees || data.removedDeskAttendees) {
+        await updateAssignees('DESK_ATTENDEE', data.deskAttendees || [], data.removedDeskAttendees);
+      }
     });
-  }
-
-  return updatedUsers;
-};
-
-// Update MCs and Desk Attendees if provided
-if (data.mcs || data.removedMcs) {
-  await updateAssignees('MC', data.mcs || [], data.removedMcs);
-}
-if (data.deskAttendees || data.removedDeskAttendees) {
-  await updateAssignees('DESK_ATTENDEE', data.deskAttendees || [], data.removedDeskAttendees);
-}
 
     return NextResponse.json({ message: 'Event updated successfully' }, { status: 200 });
   } catch (error) {
     console.error('Error updating event:', error);
-    return NextResponse.json({ error: 'Failed to update event' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to update event', details: (error as any).message }, { status: 500 });
   }
 }

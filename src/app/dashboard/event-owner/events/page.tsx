@@ -26,6 +26,7 @@ interface EditForm {
   deskAttendees: Assignee[];
   removedMcs?: number[];
   removedDeskAttendees?: number[];
+  smsTemplate: string;
 }
 
 export default function AllEvents() {
@@ -44,6 +45,7 @@ export default function AllEvents() {
     deskAttendees: [{ username: '', password: '', phone: '' }],
     removedMcs: [],
     removedDeskAttendees: [],
+    smsTemplate: '',
   });
     const [changedFields, setChangedFields] = useState<Set<keyof EditForm>>(new Set());
 
@@ -119,8 +121,14 @@ export default function AllEvents() {
       setLoading(true);
       const response = await fetch(`/api/events/${eventId}`);
       if (response.ok) {
-        return await response.json();
-      }
+       const data = await response.json();
+      console.log('Fetched event details:', data); 
+      return {
+        mcs: data.mcs,
+        deskAttendees: data.deskAttendees,
+        smsTemplate: data.smsTemplate || '',
+      };
+    }
       return null;
     } catch (error) {
       console.error('Error fetching event details:', error);
@@ -133,6 +141,7 @@ export default function AllEvents() {
   // Open Edit Modal
  const handleEdit = async (event: Event) => {
   const details = await fetchEventDetails(event.id);
+  console.log('Setting edit form with details:', details);
   setEditEvent(event);
   setEditForm({
     title: event.title,
@@ -155,6 +164,7 @@ export default function AllEvents() {
       })) || [{ username: '', password: '', phone: '' }],
     removedMcs: [],
     removedDeskAttendees: [],
+     smsTemplate: details?.smsTemplate || '',
   });
   setChangedFields(new Set());
   setShowEditModal(true);
@@ -184,6 +194,9 @@ const handleUpdate = async (e: React.FormEvent) => {
       }
     });
 
+    if (updateData.smsTemplate === '') {
+      delete updateData.smsTemplate;
+    }
     console.log('Update data:', updateData);
 
     if (Object.keys(updateData).length === 0) {
@@ -208,6 +221,8 @@ const handleUpdate = async (e: React.FormEvent) => {
         setEditForm((prev) => ({ ...prev, removedMcs: [], removedDeskAttendees: [] }));
       setChangedFields(new Set<keyof EditForm>());
     } else {
+       const errorData = await response.json();
+      console.error('Update failed:', errorData);
       alert('Failed to update event');
     }
   } catch (error) {
@@ -219,7 +234,7 @@ const handleUpdate = async (e: React.FormEvent) => {
 };
 
   // Handle Form Input Changes
-   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setEditForm((prev) => ({ ...prev, [name]: value }));
     setChangedFields((prev) => new Set(prev).add(name as keyof EditForm));
@@ -456,6 +471,24 @@ const addMc = () => {
               <option value="BIRTHDAY" />
             </datalist>
           </div>
+        </div>
+        {/* SMS Template */}
+        <div>
+        <label htmlFor="smsTemplate" className="block text-sm sm:text-base font-medium text-gray-700">
+        SMS Template
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          Please ensure all dynamic placeholders ({'{donorName}'}, {'{amount}'}, {'{gift}'}, {'{target}'}) are included in your SMS template.
+        </div>
+        </label>
+        <textarea
+        id="smsTemplate"
+        name="smsTemplate"
+        value={editForm.smsTemplate}
+        onChange={handleInputChange}
+        className="mt-1 p-2 sm:p-3 w-full border rounded-md text-sm sm:text-base text-black focus:ring-2 focus:ring-blue-500"
+        rows={4}
+        placeholder="Enter SMS template"
+        />
         </div>
         {/* MCs */}
         <div>
