@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import bcrypt from 'bcrypt';
-import fs from 'fs/promises';
+import { put } from '@vercel/blob';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { Prisma } from '@prisma/client';
@@ -23,15 +23,6 @@ export async function POST(request: Request) {
   const createdById = Number(session.user.id);
   if (isNaN(createdById)) {
     return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
-  }
-
-  // Ensure uploads directory exists
-  const uploadDir = path.join(process.cwd(), 'public/uploads');
-  try {
-    await fs.mkdir(uploadDir, { recursive: true });
-  } catch (error: unknown) {
-    console.error('Error creating uploads directory:', error);
-    return NextResponse.json({ error: 'Failed to create upload directory' }, { status: 500 });
   }
 
   let imagePath: string | null = null;
@@ -72,18 +63,18 @@ export async function POST(request: Request) {
     }
 
     // Validate required fields
-    if (!title || !type) {
+     if (!title?.trim() || !type?.trim()) {
       return NextResponse.json({ error: 'Missing required fields: title and type are required' }, { status: 400 });
     }
 
     // Validate MCs and Desk Attendees
-    for (const mc of mcs) {
-      if (!mc.username || !mc.password) {
+  for (const mc of mcs) {
+      if (!mc.username?.trim() || !mc.password?.trim()) {
         throw new Error('Each MC must have a username and password');
       }
     }
     for (const attendee of deskAttendees) {
-      if (!attendee.username || !attendee.password) {
+      if (!attendee.username?.trim() || !attendee.password?.trim()) {
         throw new Error('Each Desk Attendee must have a username and password');
       }
     }
@@ -104,13 +95,14 @@ export async function POST(request: Request) {
       }
       const extension = path.extname(imageFile.name || '.jpg');
       const filename = `${uuidv4()}${extension}`;
-      const filePath = path.join(uploadDir, filename);
-      try {
-        const buffer = Buffer.from(await imageFile.arrayBuffer());
-        await fs.writeFile(filePath, buffer);
-        imagePath = `/uploads/${filename}`;
+       try {
+        const { url } = await put(`events/${filename}`, await imageFile.arrayBuffer(), {
+          access: 'public',
+          token: process.env.BLOB_READ_WRITE_TOKEN,
+        }); // Upload to Vercel Blob
+        imagePath = url; // Store Blob URL
       } catch (err: any) {
-        throw new Error(`Failed to save image: ${err.message || 'Unknown error'}`);
+        throw new Error(`Failed to upload image to Vercel Blob: ${err.message || 'Unknown error'}`);
       }
     }
 
@@ -262,14 +254,9 @@ export async function POST(request: Request) {
       details: errorDetails,
       requestHeaders: Object.fromEntries(request.headers.entries()),
       formDataKeys: request.formData ? Array.from((await request.formData()).keys()) : 'FormData not parsed',
+      nodeEnv: process.env.NODE_ENV,
+      vercelEnv: process.env.VERCEL_ENV,
     });
-
-    // Clean up image if saved but transaction failed
-    if (imagePath) {
-      await fs.unlink(path.join(uploadDir, path.basename(imagePath))).catch((err) => {
-        console.error('Failed to clean up image:', err);
-      });
-    }
 
     return NextResponse.json(
       { error: 'Failed to create event', details: errorMessage },

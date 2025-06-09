@@ -254,8 +254,16 @@ export default function EventOwnerDashboard() {
         body: formData,
       });
 
+         let responseData: { error?: string; details?: string; event?: any; mcs?: any; deskAttendees?: any } = {};
+        try {
+          responseData = await response.json();
+        } catch (err) {
+          console.error('Failed to parse response JSON:', err);
+          responseData = { error: 'Invalid server response', details: 'Server returned invalid JSON' };
+        }
+
       if (response.ok) {
-        const { mcs: createdMcs, deskAttendees: createdAttendees } = await response.json();
+      const { event, mcs: createdMcs, deskAttendees: createdAttendees } = responseData;
         setLoading(true);
         const [assigneesResponse, eventsResponse] = await Promise.all([
           fetch('/api/roles/list'),
@@ -283,12 +291,11 @@ export default function EventOwnerDashboard() {
         setDeskAttendees([{ username: '', password: '', phone: '' }]);
         alert('Event created! Send credentials from the SMS section.');
       } else {
-        const errorData = await response.json();
-        setError(errorData?.error || 'Failed to create event');
+        setError(responseData.error || `Failed to create event: ${responseData.details || 'Unknown error'}`);
       }
-    } catch (error) {
-      console.error('Error creating event:', error);
-      setError('Error creating event');
+    } catch (error: unknown) {
+      console.error('Frontend error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to create event');
     } finally {
       setLoading(false);
     }
