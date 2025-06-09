@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 // import Loading from '@/components/Loading';
+import imageCompression from 'browser-image-compression';
 import { useLoading } from '@/context/LoadingContext';
 
 type Assignee = {
@@ -20,6 +21,7 @@ type Assignee = {
 type Event = {
   id: number;
   title: string;
+  image?: string | null;
   createdAt?: string;
 };
 
@@ -51,6 +53,7 @@ export default function EventOwnerDashboard() {
   const [eventDate, setEventDate] = useState('');
   const [eventType, setEventType] = useState('');
   const [smsTemplate, setSmsTemplate] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [mcs, setMcs] = useState([{ username: '', password: '', phone: '' }]);
   const [deskAttendees, setDeskAttendees] = useState([{ username: '', password: '', phone: '' }]);
   const [smsPhone, setSmsPhone] = useState('');
@@ -125,6 +128,32 @@ export default function EventOwnerDashboard() {
     fetchData();
   }, []);
 
+  
+  // Handle image selection and compression
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file (JPEG, PNG, etc.)');
+      return;
+    }
+
+    try {
+      const options = {
+        maxSizeMB: 1, // Max 1MB
+        maxWidthOrHeight: 1920, // Max dimension
+        useWebWorker: true,
+      };
+      const compressedFile = await imageCompression(file, options);
+      setImageFile(compressedFile);
+      setError('');
+    } catch (error) {
+      console.error('Error compressing image:', error);
+      setError('Failed to compress image');
+    }
+  };
+
   // Countdown Timer
   useEffect(() => {
     if (!expiresAt) return;
@@ -187,61 +216,75 @@ export default function EventOwnerDashboard() {
 
   // Create Event
   const createEvent = async () => {
-    setError('');
-    try {
-      setLoading(true);
-      // Filter valid MCs and Desk Attendees
-      const validMcs = mcs.filter(mc => mc.username.trim() && mc.password.trim());
-      const validAttendees = deskAttendees.filter(attendee => attendee.username.trim() && attendee.password.trim());
+     setError('');
+  try {
+    setLoading(true);
+    const validMcs = mcs.filter((mc) => mc.username?.trim() && mc.password?.trim());
+    const validAttendees = deskAttendees.filter((attendee) => attendee.username?.trim() && attendee.password?.trim());
 
-      // Validate required fields
-      if (!eventTitle.trim() || !eventType) {
-        setError('Event title and type are required');
-        return;
-      }
+    if (!eventTitle?.trim() || !eventType) {
+      setError('Event title and type are required');
+      return;
+    }
 
-      const payload = {
-        title: eventTitle,
-        location: eventLocation,
-        date: eventDate ? new Date(eventDate).toISOString() : null,
-        type: eventType,
-        smsTemplate,
-        mcs: validMcs,
-        deskAttendees: validAttendees,
-      };
+       const formData = new FormData();
+    formData.append('title', eventTitle);
+    if (eventLocation) formData.append('location', eventLocation);
+    if (eventDate) formData.append('date', eventDate);
+    formData.append('type', eventType);
+    if (smsTemplate) formData.append('smsTemplate', smsTemplate);
+    if (validMcs.length > 0) formData.append('mcs', JSON.stringify(validMcs));
+    if (validAttendees.length > 0) formData.append('deskAttendees', JSON.stringify(validAttendees));
+    if (imageFile) formData.append('image', imageFile);
+
+     // Debug FormData contents
+    console.log('Sending FormData:', {
+      title: eventTitle,
+      location: eventLocation,
+      date: eventDate,
+      type: eventType,
+      smsTemplate,
+      mcs: validMcs,
+      deskAttendees: validAttendees,
+      image: imageFile ? { name: imageFile.name, size: imageFile.size, type: imageFile.type } : null,
+    });
 
       const response = await fetch('/api/events/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: formData,
       });
 
       if (response.ok) {
         const { mcs: createdMcs, deskAttendees: createdAttendees } = await response.json();
         setLoading(true);
-        // Refresh assignees and events
         const [assigneesResponse, eventsResponse] = await Promise.all([
           fetch('/api/roles/list'),
           fetch('/api/events'),
         ]);
         if (assigneesResponse.ok) setAssignees(await assigneesResponse.json());
-        if (eventsResponse.ok) {
-          const newEvents = await eventsResponse.json();
-          setEvents(newEvents);
-          setSelectedEventId(newEvents[newEvents.length - 1]?.id || selectedEventId);
-        }
+         if (eventsResponse.ok) {
+        const newEvents: Event[] = await eventsResponse.json();
+        const sortedEvents = newEvents
+          .map((event, index) => ({
+            ...event,
+            Id: index + 1,
+          }));
+        setEvents(sortedEvents);
+        setSelectedEventId(newEvents[newEvents.length - 1]?.id || selectedEventId);
+      }
         setShowModal(false);
         setEventTitle('');
         setEventLocation('');
         setEventDate('');
         setEventType('');
         setSmsTemplate('');
-        setMcs([]); // Reset to empty array
-        setDeskAttendees([]); // Reset to empty array
+        setImageFile(null); // Reset image
+        setMcs([{ username: '', password: '', phone: '' }]);
+        setDeskAttendees([{ username: '', password: '', phone: '' }]);
         alert('Event created! Send credentials from the SMS section.');
       } else {
         const errorData = await response.json();
-        setError(errorData.error || 'Failed to create event');
+        setError(errorData?.error || 'Failed to create event');
       }
     } catch (error) {
       console.error('Error creating event:', error);
@@ -674,6 +717,19 @@ useEffect(() => {
                 <option value="Funeral" />
                 <option value="Birthday" />
               </datalist>
+                <div>
+                <label htmlFor="eventImage" className="block text-sm sm:text-base font-medium text-gray-700 dark:text-gray-300">
+                  Event Image
+                </label>
+                <input
+                  type="file"
+                  id="eventImage"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="p-2 sm:p-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 w-full"
+                  aria-label="Event Image"
+                />
+              </div>
               <div className="text-sm text-gray-500 dark:text-gray-400">
                 Please ensure all dynamic placeholders ({'{donorName}'}, {'{amount}'}, {'{gift}'}, {'{target}'}) are included in your SMS template.
               </div>
@@ -809,6 +865,7 @@ useEffect(() => {
                     setError('');
                     setMcs([]);
                     setDeskAttendees([]);
+                    setImageFile(null);
                   }}
                   className="p-2 sm:p-3 bg-red-600 text-white text-sm sm:text-base rounded-lg hover:bg-red-700 transition-colors duration-200 w-full sm:w-auto"
                   aria-label="Cancel"

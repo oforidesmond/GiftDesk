@@ -476,7 +476,7 @@ const addMc = () => {
         <div>
         <label htmlFor="smsTemplate" className="block text-sm sm:text-base font-medium text-gray-700">
         SMS Template
-        <div className="text-sm text-gray-500 dark:text-gray-400">
+        <div className="text-xs text-gray-500 dark:text-gray-400">
           Please ensure all dynamic placeholders ({'{donorName}'}, {'{amount}'}, {'{gift}'}, {'{target}'}) are included in your SMS template.
         </div>
         </label>

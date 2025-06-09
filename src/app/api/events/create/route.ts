@@ -1,8 +1,18 @@
-import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcrypt';
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import bcrypt from 'bcrypt';
+import fs from 'fs/promises';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import { Prisma } from '@prisma/client';
+
+export const config = {
+  api: {
+    bodyParser: false, // Disable Next.js body parsing
+  },
+};
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
@@ -10,124 +20,260 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  const {
-    title,
-    location,
-    date,
-    type,
-    smsTemplate,
-    mcs,
-    deskAttendees,
-  } = await request.json();
-
-  // Validate required fields
-  if (!title || !type) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+  const createdById = Number(session.user.id);
+  if (isNaN(createdById)) {
+    return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
   }
 
+  // Ensure uploads directory exists
+  const uploadDir = path.join(process.cwd(), 'public/uploads');
   try {
-    // Create Event
-    const event = await prisma.event.create({
-      data: {
-        title,
-        location: location || null,
-        date: date ? new Date(date) : null,
-        type,
-        createdById: Number(session.user.id),
-      },
+    await fs.mkdir(uploadDir, { recursive: true });
+  } catch (error: unknown) {
+    console.error('Error creating uploads directory:', error);
+    return NextResponse.json({ error: 'Failed to create upload directory' }, { status: 500 });
+  }
+
+  let imagePath: string | null = null;
+
+  try {
+    // Parse form data
+    const formData = await request.formData().catch((err) => {
+      throw new Error(`Failed to parse form data: ${err.message || 'Unknown error'}`);
     });
 
-    // Assign creator to the event
-    await prisma.user.update({
-      where: { id: Number(session.user.id) },
-      data: {
-        assignedEvents: {
-          connect: { id: event.id },
-        },
-      },
-    });
+    // Extract and validate fields
+    const title = formData.get('title') as string;
+    const location = (formData.get('location') as string) || null;
+    const date = (formData.get('date') as string) || null;
+    const type = formData.get('type') as string;
+    const smsTemplate = (formData.get('smsTemplate') as string) || undefined;
+    let mcs: { username: string; password: string; phone: string }[] = [];
+    let deskAttendees: { username: string; password: string; phone: string }[] = [];
 
-    // Create SMS Template if provided
-    if (smsTemplate) {
-      const existingTemplate = await prisma.sMSTemplate.findFirst({
-        where: { eventId: event.id },
-      });
-      if (!existingTemplate) {
-        await prisma.sMSTemplate.create({
-          data: {
-            eventId: event.id,
-            content: smsTemplate,
-            createdById: Number(session.user.id),
-          },
-        });
+    // Parse JSON fields
+    try {
+      const mcsRaw = formData.get('mcs') as string;
+      if (mcsRaw) {
+        mcs = JSON.parse(mcsRaw);
+        if (!Array.isArray(mcs)) {
+          throw new Error('MCs must be an array');
+        }
+      }
+      const deskAttendeesRaw = formData.get('deskAttendees') as string;
+      if (deskAttendeesRaw) {
+        deskAttendees = JSON.parse(deskAttendeesRaw);
+        if (!Array.isArray(deskAttendees)) {
+          throw new Error('Desk Attendees must be an array');
+        }
+      }
+    } catch (err: any) {
+      throw new Error(`Invalid JSON in mcs or deskAttendees: ${err.message}`);
+    }
+
+    // Validate required fields
+    if (!title || !type) {
+      return NextResponse.json({ error: 'Missing required fields: title and type are required' }, { status: 400 });
+    }
+
+    // Validate MCs and Desk Attendees
+    for (const mc of mcs) {
+      if (!mc.username || !mc.password) {
+        throw new Error('Each MC must have a username and password');
+      }
+    }
+    for (const attendee of deskAttendees) {
+      if (!attendee.username || !attendee.password) {
+        throw new Error('Each Desk Attendee must have a username and password');
       }
     }
 
-    // Create MCs if provided and non-empty
-    let createdMcs: { id: number; username: string; password: string; phone: string; role: string }[] = [];
-    if (Array.isArray(mcs) && mcs.length > 0) {
-      createdMcs = await Promise.all(
-        mcs.map(async (mc: { username: string; password: string; phone: string }) => {
-          if (!mc.username || !mc.password) {
-            throw new Error('MC username and password are required');
-          }
-          const hashedPassword = await bcrypt.hash(mc.password, 10);
-          const user = await prisma.user.create({
-            data: {
-              username: mc.username,
-              password: hashedPassword,
-              phone: mc.phone || null,
-              role: 'MC',
-              createdById: Number(session.user.id),
-              sentCredentials: false,
-              assignedEvents: { connect: { id: event.id } },
-            },
-          });
-          await prisma.userCredential.create({
-            data: {
-              userId: user.id,
-              password: mc.password, // Store plain-text
-            },
-          });
-          return { id: user.id, username: mc.username, password: mc.password, phone: mc.phone, role: 'MC' };
-        })
-      );
+    // Handle image file
+    const imageFile = formData.get('image') as File | null;
+    if (imageFile) {
+      // Validate file type
+      if (!imageFile.type.startsWith('image/')) {
+        return NextResponse.json({ error: 'Invalid file type. Only images are allowed.' }, { status: 400 });
+      }
+      // Validate file size (5MB max)
+      if (imageFile.size > 5 * 1024 * 1024) {
+        return NextResponse.json({ error: 'Image file too large. Max 5MB.' }, { status: 400 });
+      }
+      if (imageFile.size === 0) {
+        return NextResponse.json({ error: 'Image file is empty.' }, { status: 400 });
+      }
+      const extension = path.extname(imageFile.name || '.jpg');
+      const filename = `${uuidv4()}${extension}`;
+      const filePath = path.join(uploadDir, filename);
+      try {
+        const buffer = Buffer.from(await imageFile.arrayBuffer());
+        await fs.writeFile(filePath, buffer);
+        imagePath = `/uploads/${filename}`;
+      } catch (err: any) {
+        throw new Error(`Failed to save image: ${err.message || 'Unknown error'}`);
+      }
     }
 
-    // Create Desk Attendees if provided and non-empty
-    let createdAttendees: { id: number; username: string; password: string; phone: string; role: string }[] = [];
-    if (Array.isArray(deskAttendees) && deskAttendees.length > 0) {
-      createdAttendees = await Promise.all(
-        deskAttendees.map(async (attendee: { username: string; password: string; phone: string }) => {
-          if (!attendee.username || !attendee.password) {
-            throw new Error('Desk Attendee username and password are required');
-          }
-          const hashedPassword = await bcrypt.hash(attendee.password, 10);
-          const user = await prisma.user.create({
+    // Create event and related data in a transaction
+    const result = await prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        // Create event
+        const event = await tx.event.create({
+          data: {
+            title,
+            location,
+            date: date ? new Date(date) : null,
+            type,
+            image: imagePath,
+            createdById,
+          },
+        }).catch((err) => {
+          throw new Error(`Failed to create event: ${err.message || 'Unknown error'}`);
+        });
+
+        // Assign creator to the event
+        await tx.user
+          .update({
+            where: { id: createdById },
             data: {
+              assignedEvents: {
+                connect: { id: event.id },
+              },
+            },
+          })
+          .catch((err) => {
+            throw new Error(`Failed to assign creator to event: ${err.message || 'Unknown error'}`);
+          });
+
+        // Create SMS Template if provided
+        let createdTemplate = null;
+        if (smsTemplate) {
+          const existingTemplate = await tx.sMSTemplate.findFirst({
+            where: { eventId: event.id },
+          });
+          if (!existingTemplate) {
+            createdTemplate = await tx.sMSTemplate
+              .create({
+                data: {
+                  eventId: event.id,
+                  content: smsTemplate,
+                  createdById,
+                },
+              })
+              .catch((err) => {
+                throw new Error(`Failed to create SMS template: ${err.message || 'Unknown error'}`);
+              });
+          }
+        }
+
+        // Create MCs if provided and non-empty
+        const createdMcs = await Promise.all(
+          mcs.map(async (mc: { username: string; password: string; phone: string }) => {
+            const hashedPassword = await bcrypt.hash(mc.password, 10);
+            const user = await tx.user
+              .create({
+                data: {
+                  username: mc.username,
+                  password: hashedPassword,
+                  phone: mc.phone || null,
+                  role: 'MC',
+                  createdById,
+                  sentCredentials: false,
+                  assignedEvents: { connect: { id: event.id } },
+                },
+              })
+              .catch((err) => {
+                throw new Error(`Failed to create MC user: ${err.message || 'Unknown error'}`);
+              });
+            await tx.userCredential
+              .create({
+                data: {
+                  userId: user.id,
+                  password: mc.password, // Note: Address plain-text storage
+                },
+              })
+              .catch((err) => {
+                throw new Error(`Failed to create MC credential: ${err.message || 'Unknown error'}`);
+              });
+            return { id: user.id, username: mc.username, password: mc.password, phone: mc.phone, role: 'MC' };
+          })
+        );
+
+        // Create Desk Attendees if provided and non-empty
+        const createdAttendees = await Promise.all(
+          deskAttendees.map(async (attendee: { username: string; password: string; phone: string }) => {
+            const hashedPassword = await bcrypt.hash(attendee.password, 10);
+            const user = await tx.user
+              .create({
+                data: {
+                  username: attendee.username,
+                  password: hashedPassword,
+                  phone: attendee.phone || null,
+                  role: 'DESK_ATTENDEE',
+                  createdById,
+                  sentCredentials: false,
+                  assignedEvents: { connect: { id: event.id } },
+                },
+              })
+              .catch((err) => {
+                throw new Error(`Failed to create Desk Attendee user: ${err.message || 'Unknown error'}`);
+              });
+            await tx.userCredential
+              .create({
+                data: {
+                  userId: user.id,
+                  password: attendee.password, // Note: Address plain-text storage
+                },
+              })
+              .catch((err) => {
+                throw new Error(`Failed to create Desk Attendee credential: ${err.message || 'Unknown error'}`);
+              });
+            return {
+              id: user.id,
               username: attendee.username,
-              password: hashedPassword,
-              phone: attendee.phone || null,
+              password: attendee.password,
+              phone: attendee.phone,
               role: 'DESK_ATTENDEE',
-              createdById: Number(session.user.id),
-              sentCredentials: false,
-              assignedEvents: { connect: { id: event.id } },
-            },
-          });
-          await prisma.userCredential.create({
-            data: {
-              userId: user.id,
-              password: attendee.password, // Store plain-text
-            },
-          });
-          return { id: user.id, username: attendee.username, password: attendee.password, phone: attendee.phone, role: 'DESK_ATTENDEE' };
-        })
-      );
+            };
+          })
+        );
+
+        return { event, createdTemplate, createdMcs, createdAttendees };
+      },
+      { timeout: 10000 } // Increase transaction timeout if needed
+    );
+
+    return NextResponse.json(
+      {
+        event: result.event,
+        mcs: result.createdMcs,
+        deskAttendees: result.createdAttendees,
+      },
+      { status: 201 }
+    );
+  } catch (error: unknown) {
+    // Enhanced error handling to avoid null errors
+    const errorMessage =
+      error instanceof Error ? error.message : typeof error === 'string' ? error : 'Unknown error';
+    const errorDetails = error instanceof Error && error.stack ? error.stack : 'No stack trace available';
+
+    console.error('Error creating event:', {
+      message: errorMessage,
+      details: errorDetails,
+      requestHeaders: Object.fromEntries(request.headers.entries()),
+      formDataKeys: request.formData ? Array.from((await request.formData()).keys()) : 'FormData not parsed',
+    });
+
+    // Clean up image if saved but transaction failed
+    if (imagePath) {
+      await fs.unlink(path.join(uploadDir, path.basename(imagePath))).catch((err) => {
+        console.error('Failed to clean up image:', err);
+      });
     }
 
-    return NextResponse.json({ event, mcs: createdMcs, deskAttendees: createdAttendees });
-  } catch (error) {
-    console.error('Error creating event:', error);
-    return NextResponse.json({ error: 'Failed to create event' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to create event', details: errorMessage },
+      { status: 500 }
+    );
   }
 }

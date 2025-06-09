@@ -17,6 +17,8 @@ export async function GET() {
       location: true,
       date: true,
       type: true,
+      image: true,
+      createdAt: true,
     },
   });
 

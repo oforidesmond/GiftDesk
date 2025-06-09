@@ -42,6 +42,7 @@ model Event {
   location      String?
   date          DateTime?
   type          String
+  image         String?
   createdBy     User        @relation(fields: [createdById], references: [id])
   createdById   Int
   donations     Donation[]
