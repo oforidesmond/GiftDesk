@@ -205,42 +205,49 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Title and type are required' }, { status: 400 });
     }
 
-    // Handle image file (unchanged)
-    const imageAction = formData.get('imageAction') as string | null;
-    if (imageAction === 'remove') {
+   // Handle image file
+const imageAction = formData.get('imageAction') as string | null;
+if (imageAction === 'remove') {
+  if (existingEvent.image) {
+    await del(existingEvent.image).catch((err) => {
+      console.error('Failed to delete image from Vercel Blob:', err);
+      throw new Error(`Failed to delete image: ${err.message || 'Unknown error'}`);
+    });
+  }
+  imagePath = null;
+} else {
+  const imageFile = formData.get('image') as File | null;
+  if (imageFile && imageFile.size > 0) {
+    console.log('Processing image upload:', { name: imageFile.name, size: imageFile.size, type: imageFile.type });
+    if (!imageFile.type.startsWith('image/')) {
+      return NextResponse.json({ error: 'Invalid file type. Only images are allowed.' }, { status: 400 });
+    }
+    if (imageFile.size > 5 * 1024 * 1024) {
+      return NextResponse.json({ error: 'Image file too large. Max 5MB.' }, { status: 400 });
+    }
+    const extension = path.extname(imageFile.name || '.jpg');
+    const filename = `${uuidv4()}${extension}`;
+    try {
+      const { url } = await put(`events/${filename}`, await imageFile.arrayBuffer(), {
+        access: 'public',
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      });
+      console.log('Image uploaded successfully:', { url });
+      imagePath = url;
       if (existingEvent.image) {
         await del(existingEvent.image).catch((err) => {
-          console.error('Failed to delete image from Vercel Blob:', err);
+          console.error('Failed to delete old image:', err);
         });
       }
-      imagePath = null;
-    } else {
-      const imageFile = formData.get('image') as File | null;
-      if (imageFile && imageFile.size > 0) {
-        if (!imageFile.type.startsWith('image/')) {
-          return NextResponse.json({ error: 'Invalid file type. Only images are allowed.' }, { status: 400 });
-        }
-        if (imageFile.size > 5 * 1024 * 1024) {
-          return NextResponse.json({ error: 'Image file too large. Max 5MB.' }, { status: 400 });
-        }
-        const extension = path.extname(imageFile.name || '.jpg');
-        const filename = `${uuidv4()}${extension}`;
-        try {
-          const { url } = await put(`events/${filename}`, await imageFile.arrayBuffer(), {
-            access: 'public',
-            token: process.env.BLOB_READ_WRITE_TOKEN,
-          });
-          imagePath = url;
-          if (existingEvent.image) {
-            await del(existingEvent.image).catch((err) => {
-              console.error('Failed to delete old image:', err);
-            });
-          }
-        } catch (err: any) {
-          throw new Error(`Failed to upload image to Vercel Blob: ${err.message || 'Unknown error'}`);
-        }
-      }
+    } catch (err: any) {
+      console.error('Image upload failed:', err);
+      throw new Error(`Failed to upload image to Vercel Blob: ${err.message || 'Unknown error'}`);
     }
+  } else if (imageFile && imageFile.size === 0) {
+    console.warn('Received empty image file');
+    return NextResponse.json({ error: 'Invalid image file. File is empty.' }, { status: 400 });
+  }
+}
 
     // Update event and related data in a transaction
     const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {

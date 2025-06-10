@@ -180,30 +180,37 @@ export default function AllEvents() {
 
 // Handle Image Change
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      alert('Please select an image file (JPEG, PNG, etc.)');
-      return;
-    }
-    try {
-      const options = {
-        maxSizeMB: 1,
-        maxWidthOrHeight: 1920,
-        useWebWorker: true,
-      };
-      const compressedFile = await imageCompression(file, options);
-      setEditForm((prev) => ({ ...prev, image: compressedFile }));
-      setChangedFields((prev) => new Set(prev).add('image'));
-      // Create preview URL
-      const previewUrl = URL.createObjectURL(compressedFile);
-      setImagePreview(previewUrl);
-      return () => URL.revokeObjectURL(previewUrl); // Cleanup on unmount
-    } catch (err) {
-      console.error('Error compressing image:', err);
-      alert('Failed to compress image');
-    }
-  };
+  const file = e.target.files?.[0];
+  if (!file) {
+    console.warn('No file selected');
+    alert('No file selected. Please choose an image.');
+    return;
+  }
+  if (!file.type.startsWith('image/')) {
+    console.warn('Invalid file type:', file.type);
+    alert('Please select an image file (JPEG, PNG, etc.)');
+    return;
+  }
+  try {
+    const options = {
+      maxSizeMB: 1,
+      maxWidthOrHeight: 1920,
+      useWebWorker: true,
+    };
+    console.log('Compressing image:', { name: file.name, size: file.size, type: file.type });
+    const compressedFile = await imageCompression(file, options);
+    setEditForm((prev) => ({ ...prev, image: compressedFile }));
+    setChangedFields((prev) => new Set(prev).add('image'));
+    // Create preview URL
+    const previewUrl = URL.createObjectURL(compressedFile);
+    setImagePreview(previewUrl);
+    console.log('Image compressed successfully:', { name: compressedFile.name, size: compressedFile.size });
+    return () => URL.revokeObjectURL(previewUrl); // Cleanup on unmount
+  } catch (err) {
+    console.error('Error compressing image:', err);
+    alert('Failed to process image. Please try again.');
+  }
+};
 
   // Add cleanup effect
   useEffect(() => {
@@ -256,27 +263,24 @@ export default function AllEvents() {
       formData.append('removedDeskAttendees', JSON.stringify(editForm.removedDeskAttendees));
 
     // Handle image
-    if (changedFields.has('image')) {
-      if (editForm.image) {
-        formData.append('image', editForm.image);
-      } else if (imagePreview === null) {
-        formData.append('imageAction', 'remove');
-      }
+    if (editForm.image) {
+      console.log('Appending image to FormData:', { name: editForm.image.name, size: editForm.image.size });
+      formData.append('image', editForm.image);
+    } else if (imagePreview === null && editEvent.image) {
+      console.log('Appending imageAction: remove');
+      formData.append('imageAction', 'remove');
     }
 
-    // console.log('Sending Update FormData:', {
-    //   title: editForm.title,
-    //   location: editForm.location,
-    //   date: editForm.date,
-    //   type: editForm.type,
-    //   smsTemplate: editForm.smsTemplate,
-    //   mcs,
-    //   deskAttendees,
-    //   removedMcs: editForm.removedMcs,
-    //   removedDeskAttendees: editForm.removedDeskAttendees,
-    //   image: editForm.image ? { name: editForm.image.name, size: editForm.image.size } : null,
-    //   imageAction: formData.get('imageAction'),
-    // });
+    // Log FormData contents for debugging
+    const formDataEntries = Object.fromEntries(formData.entries());
+    console.log('Sending Update FormData:', {
+      ...formDataEntries,
+      image: editForm.image ? { name: editForm.image.name, size: editForm.image.size } : null,
+      mcs: mcs,
+      deskAttendees: deskAttendees,
+      removedMcs: editForm.removedMcs,
+      removedDeskAttendees: editForm.removedDeskAttendees,
+    });
 
     const response = await fetch(`/api/events/${editEvent.id}`, {
       method: 'PUT',
