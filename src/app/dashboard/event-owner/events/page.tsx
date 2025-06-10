@@ -5,6 +5,8 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { useLoading } from '@/context/LoadingContext';
+import imageCompression from 'browser-image-compression';
+import Image from 'next/image';
 
 type Event = {
   id: number;
@@ -13,6 +15,7 @@ type Event = {
   date: string | null;
   type: string;
   createdAt: string;
+  image: string | null;
 };
 
 type Assignee = { id?: number; username: string; password?: string; phone: string };
@@ -27,6 +30,7 @@ interface EditForm {
   removedMcs?: number[];
   removedDeskAttendees?: number[];
   smsTemplate: string;
+  image?: File | null;
 }
 
 export default function AllEvents() {
@@ -46,8 +50,10 @@ export default function AllEvents() {
     removedMcs: [],
     removedDeskAttendees: [],
     smsTemplate: '',
+    image: null,
   });
     const [changedFields, setChangedFields] = useState<Set<keyof EditForm>>(new Set());
+    const [imagePreview, setImagePreview] = useState<string | null>(null); 
 
   // Redirect if not Event Owner
   useEffect(() => {
@@ -146,7 +152,7 @@ export default function AllEvents() {
   setEditForm({
     title: event.title,
     location: event.location || '',
-    date: event.date ? new Date(event.date).toISOString().slice(0, 16) : '',
+    date: event.date ? new Date(event.date).toISOString().slice(0, 10) : '',
     type: event.type,
     mcs:
       details?.mcs?.map((mc: { id: number; username: string; phone: string }) => ({
@@ -165,65 +171,148 @@ export default function AllEvents() {
     removedMcs: [],
     removedDeskAttendees: [],
      smsTemplate: details?.smsTemplate || '',
+     image: null,
   });
+  setImagePreview(event.image || null);
   setChangedFields(new Set());
   setShowEditModal(true);
 };
 
-   // Update Event
-const handleUpdate = async (e: React.FormEvent) => {
+// Handle Image Change
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file (JPEG, PNG, etc.)');
+      return;
+    }
+    try {
+      const options = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true,
+      };
+      const compressedFile = await imageCompression(file, options);
+      setEditForm((prev) => ({ ...prev, image: compressedFile }));
+      setChangedFields((prev) => new Set(prev).add('image'));
+      // Create preview URL
+      const previewUrl = URL.createObjectURL(compressedFile);
+      setImagePreview(previewUrl);
+      return () => URL.revokeObjectURL(previewUrl); // Cleanup on unmount
+    } catch (err) {
+      console.error('Error compressing image:', err);
+      alert('Failed to compress image');
+    }
+  };
+
+  // Add cleanup effect
+  useEffect(() => {
+    return () => {
+      if (imagePreview && !editEvent?.image) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    };
+  }, [imagePreview, editEvent?.image]);
+
+  // Update Event
+  const handleUpdate = async (e: React.FormEvent) => {
   e.preventDefault();
   if (!editEvent) return;
 
   try {
-        setLoading(true);
-    const updateData: Partial<EditForm> = {};
-    changedFields.forEach((field: keyof EditForm) => {
-      if (field === 'mcs' || field === 'deskAttendees') {
-        updateData[field] = editForm[field].filter(
-          (item) => item && item.username && item.password && item.phone
-        );
-      } else if (field === 'removedMcs' || field === 'removedDeskAttendees') {
-        // Only include if the array exists and has elements
-        if (editForm[field]?.length) {
-          updateData[field] = editForm[field];
-        }
-      } else {
-        // Handle string fields: title, location, date, type
-        updateData[field] = editForm[field] as string;
+    setLoading(true);
+    const formData = new FormData();
+
+    // Include all fields, even if unchanged, to match backend expectations
+    formData.append('title', editForm.title);
+    formData.append('location', editForm.location || '');
+    formData.append('date', editForm.date || '');
+    formData.append('type', editForm.type);
+    formData.append('smsTemplate', editForm.smsTemplate || '');
+
+    // Filter out invalid assignees and only include password for new users
+    const mcs = editForm.mcs
+      .filter((mc) => mc.username && (!mc.id || mc.password)) // Include password only for new users or if provided
+      .map((mc) => ({
+        id: mc.id,
+        username: mc.username,
+        phone: mc.phone,
+        ...(mc.password && !mc.id ? { password: mc.password } : {}), // Exclude password for existing users unless changed
+      }));
+    const deskAttendees = editForm.deskAttendees
+      .filter((da) => da.username && (!da.id || da.password))
+      .map((da) => ({
+        id: da.id,
+        username: da.username,
+        phone: da.phone,
+        ...(da.password && !da.id ? { password: da.password } : {}),
+      }));
+
+    // Append array fields as JSON strings
+    formData.append('mcs', JSON.stringify(mcs));
+    formData.append('deskAttendees', JSON.stringify(deskAttendees));
+    if (editForm.removedMcs?.length) formData.append('removedMcs', JSON.stringify(editForm.removedMcs));
+    if (editForm.removedDeskAttendees?.length)
+      formData.append('removedDeskAttendees', JSON.stringify(editForm.removedDeskAttendees));
+
+    // Handle image
+    if (changedFields.has('image')) {
+      if (editForm.image) {
+        formData.append('image', editForm.image);
+      } else if (imagePreview === null) {
+        formData.append('imageAction', 'remove');
       }
-    });
-
-    if (updateData.smsTemplate === '') {
-      delete updateData.smsTemplate;
     }
-    console.log('Update data:', updateData);
 
-    if (Object.keys(updateData).length === 0) {
-      setShowEditModal(false);
-      setEditEvent(null);
-      return;
-    }
+    // console.log('Sending Update FormData:', {
+    //   title: editForm.title,
+    //   location: editForm.location,
+    //   date: editForm.date,
+    //   type: editForm.type,
+    //   smsTemplate: editForm.smsTemplate,
+    //   mcs,
+    //   deskAttendees,
+    //   removedMcs: editForm.removedMcs,
+    //   removedDeskAttendees: editForm.removedDeskAttendees,
+    //   image: editForm.image ? { name: editForm.image.name, size: editForm.image.size } : null,
+    //   imageAction: formData.get('imageAction'),
+    // });
+
     const response = await fetch(`/api/events/${editEvent.id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...updateData,
-        date: updateData.date ? new Date(updateData.date).toISOString() : undefined,
-        location: updateData.location === '' ? null : updateData.location,
-      }),
+      body: formData,
     });
+
+    let responseData: { error?: string; details?: string; message?: string } = {};
+    try {
+      responseData = await response.json();
+    } catch (err) {
+      console.error('Failed to parse response JSON:', err);
+      responseData = { error: 'Invalid server response', details: 'Server returned invalid JSON' };
+    }
 
     if (response.ok) {
       await fetchEvents();
       setShowEditModal(false);
       setEditEvent(null);
-        setEditForm((prev) => ({ ...prev, removedMcs: [], removedDeskAttendees: [] }));
-      setChangedFields(new Set<keyof EditForm>());
+      setEditForm({
+        title: '',
+        location: '',
+        date: '',
+        type: '',
+        mcs: [{ username: '', password: '', phone: '' }],
+        deskAttendees: [{ username: '', password: '', phone: '' }],
+        removedMcs: [],
+        removedDeskAttendees: [],
+        smsTemplate: '',
+        image: null,
+      });
+      setImagePreview(null);
+      setChangedFields(new Set());
+      alert('Event updated successfully');
     } else {
-       const errorData = await response.json();
-      console.error('Update failed:', errorData);
-      alert('Failed to update event');
+      console.error('Update failed:', responseData);
+      alert(`Failed to update event: ${responseData.error || 'Unknown error'}`);
     }
   } catch (error) {
     console.error('Error updating event:', error);
@@ -337,6 +426,7 @@ const addMc = () => {
               <th className="p-2 sm:p-3 border text-left font-medium">Title</th>
               <th className="p-2 sm:p-3 border text-left font-medium">Location</th>
               <th className="p-2 sm:p-3 border text-left font-medium">Date</th>
+              <th className="p-2 sm:p-3 text-xs sm:text-sm md:text-base">Image</th>
               <th className="p-2 sm:p-3 border text-left font-medium">Type</th>
               <th className="p-2 sm:p-3 border text-left font-medium">Actions</th>
             </tr>
@@ -356,6 +446,11 @@ const addMc = () => {
                 <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
                   {event.date ? new Date(event.date).toLocaleString() : 'N/A'}
                 </td>
+                <td className="p-2 sm:p-3">
+                {event.image && (
+              <Image src={event.image} alt={event.title} width={50} height={50} className="rounded-md" />
+            )}
+            </td>
                 <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
                   {event.type}
                 </td>
@@ -443,7 +538,7 @@ const addMc = () => {
           <input
             id="date"
             name="date"
-            type="datetime-local"
+            type="date"
             value={editForm.date}
             onChange={handleInputChange}
             className="mt-1 p-2 sm:p-3 w-full border rounded-md text-sm sm:text-base text-black focus:ring-2 focus:ring-blue-500"
@@ -472,6 +567,46 @@ const addMc = () => {
             </datalist>
           </div>
         </div>
+
+        {/* Image */}
+              <div className="mb-4">
+                <label htmlFor="image" className="block text-sm sm:text-base font-medium text-gray-700">
+                  Event Image
+                </label>
+                {imagePreview && (
+                  <div className="mt-2">
+                    <Image
+                      src={imagePreview}
+                      alt="Event Image Preview"
+                      width={150}
+                      height={150}
+                      className="rounded-md"
+                    />
+                  </div>
+                )}
+                {imagePreview && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditForm((prev) => ({ ...prev, image: null }));
+                      setImagePreview(null);
+                      setChangedFields((prev) => new Set(prev).add('image'));
+                    }}
+                    className="mt-2 px-2 py-1 bg-red-500 text-white rounded-md text-xs hover:bg-red-600"
+                  >
+                    Remove Image
+                  </button>
+                )}
+                <input
+                  id="image"
+                  name="image"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="mt-1 p-2 w-full border rounded-md text-sm text-black"
+                />
+              </div>
+
         {/* SMS Template */}
         <div>
         <label htmlFor="smsTemplate" className="block text-sm sm:text-base font-medium text-gray-700">

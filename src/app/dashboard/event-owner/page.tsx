@@ -238,16 +238,16 @@ export default function EventOwnerDashboard() {
     if (imageFile) formData.append('image', imageFile);
 
      // Debug FormData contents
-    console.log('Sending FormData:', {
-      title: eventTitle,
-      location: eventLocation,
-      date: eventDate,
-      type: eventType,
-      smsTemplate,
-      mcs: validMcs,
-      deskAttendees: validAttendees,
-      image: imageFile ? { name: imageFile.name, size: imageFile.size, type: imageFile.type } : null,
-    });
+    // console.log('Sending FormData:', {
+    //   title: eventTitle,
+    //   location: eventLocation,
+    //   date: eventDate,
+    //   type: eventType,
+    //   smsTemplate,
+    //   mcs: validMcs,
+    //   deskAttendees: validAttendees,
+    //   image: imageFile ? { name: imageFile.name, size: imageFile.size, type: imageFile.type } : null,
+    // });
 
       const response = await fetch('/api/events/create', {
         method: 'POST',

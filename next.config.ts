@@ -37,8 +37,16 @@ const withPWA = withPWAInit({
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   //  swcMinify: true,
-  images: {
+ images: {
     unoptimized: false,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '*.public.blob.vercel-storage.com',
+        port: '',
+        pathname: '/**', // Allow all paths under Vercel Blob
+      },
+    ],
   },
 };
 
