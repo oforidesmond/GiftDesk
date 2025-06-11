@@ -114,6 +114,13 @@ export async function POST(
         createdById: Number(session.user.id),
         status: 'PENDING',
       },
+      include: {
+        event: {
+          select: {
+            image: true, // Include event image
+          },
+        },
+      },
     });
 
     let smsTemplate = '';

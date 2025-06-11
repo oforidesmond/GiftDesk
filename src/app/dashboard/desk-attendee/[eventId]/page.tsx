@@ -16,7 +16,7 @@ type Donation = {
   donatedTo: string | null;
   status: string;
   createdAt: string;
-  event: { title: string };
+  event: { title: string; image: string | null; };
 };
 
 type DonationWithLocalId = Donation & {
@@ -112,13 +112,12 @@ const printReceiptForDonation = (donation: Donation) => {
   printDiv.style.position = 'absolute';
   printDiv.style.top = '-9999px';
   printDiv.style.left = '-9999px';
-  printDiv.style.width = '80mm'; // Standard receipt paper width
+  printDiv.style.width = '80mm';
   printDiv.style.padding = '5mm';
   printDiv.style.fontFamily = "'Arial', sans-serif";
   printDiv.style.backgroundColor = '#ffffff';
   printDiv.style.color = '#000000';
 
-  // Inject print-specific CSS
   const style = document.createElement('style');
   style.textContent = `
     @media print {
@@ -129,10 +128,18 @@ const printReceiptForDonation = (donation: Donation) => {
         width: 80mm;
         font-size: 10pt;
         page-break-after: always;
-        transform: rotate(90deg);
-        transform-origin: center;
         margin: 0;
         padding: 5mm;
+      }
+      .receipt-image {
+        width: 30mm;
+        height: 30mm;
+        object-fit: contain;
+        display: block;
+        margin: 3mm auto;
+      }
+      .receipt-content {
+        text-align: center;
       }
       @page {
         size: 80mm auto;
@@ -142,32 +149,52 @@ const printReceiptForDonation = (donation: Donation) => {
   `;
   document.head.appendChild(style);
 
-  // Format the receipt content
+  // Preload the image to ensure it loads before printing
+  const preloadImage = (src: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.src = src;
+      img.onload = () => resolve();
+      img.onerror = () => {
+        console.error(`Failed to load image: ${src}`);
+        reject(new Error(`Failed to load image: ${src}`));
+      };
+    });
+  };
+
+  // Generate receipt HTML
   printDiv.innerHTML = `
     <div style="display: flex; flex-direction: column; height: 100%;">
-      <header style="text-align: center; margin-bottom: 5mm;">
+      <header style="text-align: center; margin-bottom: 3mm;">
         <h1 style="font-size: 12pt; font-weight: bold; margin: 0; text-transform: uppercase;">
           ${eventType} RECEIPT
         </h1>
       </header>
-      <main style="flex-grow: 1; text-align: right;">
-        <h2 style="font-size: 14pt; font-family: 'Georgia', serif; font-weight: bold; margin: 0 0 3mm;">
-          ${eventTitle}
-        </h2>
-        <p style="font-size: 9pt; margin: 1mm 0;">${donation.donorName}</p>
-        ${donation.giftItem ? `<p style="font-size: 9pt; margin: 1mm 0;">Gift: ${donation.giftItem}</p>` : ''}
-        ${donation.amount != null && donation.currency ? `
+      <main>
+        ${
+          donation.event.image
+            ? `<img src="${donation.event.image}" class="receipt-image" style="width: 30mm; height: 30mm; object-fit: contain;" onerror="console.error('Image failed to load in receipt: ${donation.event.image}')" />`
+            : `<div style="width: 20mm; height: 20mm; margin: 3mm auto;"></div>`
+        }
+        <div class="receipt-content">
+          <h2 style="font-size: 14pt; font-family: 'Georgia', serif; font-weight: bold; margin: 3mm 0;">
+            ${eventTitle}
+          </h2>
+          <p style="font-size: 9pt; margin: 1mm 0;">${donation.donorName}</p>
+          ${donation.giftItem ? `<p style="font-size: 9pt; margin: 1mm 0;">Gift: ${donation.giftItem}</p>` : ''}
+          ${donation.amount != null && donation.currency ? `
+            <p style="font-size: 9pt; margin: 1mm 0;">
+              Donation: ${donation.currency} ${donation.amount.toFixed(2)}
+            </p>` : ''}
+          ${donation.donatedTo ? `<p style="font-size: 9pt; margin: 1mm 0;">To: ${donation.donatedTo}</p>` : ''}
           <p style="font-size: 9pt; margin: 1mm 0;">
-            Donation: ${donation.currency} ${donation.amount.toFixed(2)}
-          </p>` : ''}
-        ${donation.donatedTo ? `<p style="font-size: 9pt; margin: 1mm 0;">To: ${donation.donatedTo}</p>` : ''}
-        <p style="font-size: 9pt; margin: 1mm 0;">
-          ${new Date(donation.createdAt).toLocaleString()}
-        </p>
+            ${new Date(donation.createdAt).toLocaleString()}
+          </p>
+        </div>
       </main>
       <footer style="text-align: center; margin-top: 5mm;">
         <p style="font-size: 9pt; font-style: italic; margin: 0;">
-          MAY GOD RICHLY BLESS YOU
+          MAY GOD RICHLY BLESS YOU!
         </p>
       </footer>
     </div>
@@ -176,11 +203,25 @@ const printReceiptForDonation = (donation: Donation) => {
   // Append to document
   document.body.appendChild(printDiv);
 
-  setTimeout(() => {
+  // Wait for image to load before printing
+  const print = () => {
     window.print();
     document.body.removeChild(printDiv);
     document.head.removeChild(style);
-  }, 200);
+  };
+
+  if (donation.event.image) {
+    preloadImage(donation.event.image)
+      .then(() => {
+        setTimeout(print, 200);
+      })
+      .catch((error) => {
+        console.error(error);
+        setTimeout(print, 200);
+      });
+  } else {
+    setTimeout(print, 200);
+  }
 };
 
   // Create Donation
