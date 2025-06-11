@@ -30,6 +30,7 @@ export default function DeskAttendeeDashboard() {
   const eventId = Number(params.eventId);
   const [donations, setDonations] = useState<DonationWithLocalId[]>([]);
   const [eventTitle, setEventTitle] = useState('');
+  const [eventType, setEventType] = useState('');
   const [donorName, setDonorName] = useState('');
   const [donorPhone, setDonorPhone] = useState('');
   const [giftItem, setGiftItem] = useState('');
@@ -52,88 +53,133 @@ export default function DeskAttendeeDashboard() {
   
    // Fetch Donations and Validate Event
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        // Verify event assignment
-        const eventsResponse = await fetch('/api/user/events');
-        if (!eventsResponse.ok) {
-          setError('Failed to fetch assigned events');
-          router.push('/dashboard');
-          return;
-        }
-        const events = await eventsResponse.json();
-        if (!events.some((e: { id: number }) => e.id === eventId)) {
-          setError('You are not assigned to this event');
-          router.push('/dashboard');
-          return;
-        }
-
-        // Fetch donations
-        const donationsResponse = await fetch(`/api/donations/${eventId}`);
-        if (donationsResponse.ok) {
-          const data: Donation[] = await donationsResponse.json();
-          // Sort donations by createdAt (descending) and assign local IDs
-          const sortedDonations = data
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-            .map((donation, index, array) => ({
-              ...donation,
-              Id: array.length - index, // Assign local ID (1, 2, 3, ...)
-            }));
-          setDonations(sortedDonations);
-          setEventTitle(data[0]?.event.title || 'Event');
-        } else {
-          setError('Failed to fetch donations');
-          router.push('/dashboard');
-        }
-      } catch (err) {
-        setError('Error fetching data');
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      // Verify event assignment
+      const eventsResponse = await fetch('/api/user/events');
+      if (!eventsResponse.ok) {
+        setError('Failed to fetch assigned events');
         router.push('/dashboard');
-      } finally {
-        setLoading(false)
+        return;
       }
-    };
-    if (eventId && status === 'authenticated') {
-      fetchData();
+      const events = await eventsResponse.json();
+      if (!events.some((e: { id: number }) => e.id === eventId)) {
+        setError('You are not assigned to this event');
+        router.push('/dashboard');
+        return;
+      }
+
+      // Fetch event details to get event type
+      const eventResponse = await fetch(`/api/events/${eventId}`);
+      if (eventResponse.ok) {
+        const eventData = await eventResponse.json();
+        setEventType(eventData.type || 'EVENT');
+      }
+
+      // Fetch donations
+      const donationsResponse = await fetch(`/api/donations/${eventId}`);
+      if (donationsResponse.ok) {
+        const data: Donation[] = await donationsResponse.json();
+        const sortedDonations = data
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .map((donation, index, array) => ({
+            ...donation,
+            Id: array.length - index,
+          }));
+        setDonations(sortedDonations);
+        setEventTitle(data[0]?.event.title || 'Event');
+      } else {
+        setError('Failed to fetch donations');
+        router.push('/dashboard');
+      }
+    } catch (err) {
+      setError('Error fetching data');
+      router.push('/dashboard');
+    } finally {
+      setLoading(false);
     }
-  }, [eventId, status, router]);
+  };
+  if (eventId && status === 'authenticated') {
+    fetchData();
+  }
+}, [eventId, status, router, setLoading]);
 
   // Print Receipt Function
-  const printReceiptForDonation = (donation: Donation) => {
-  // Create a hidden div for printable content
+const printReceiptForDonation = (donation: Donation) => {
   const printDiv = document.createElement('div');
   printDiv.className = 'print-receipt';
   printDiv.style.position = 'absolute';
   printDiv.style.top = '-9999px';
   printDiv.style.left = '-9999px';
-  printDiv.style.width = '210mm'; // A4 width
-  printDiv.style.padding = '20px';
-  printDiv.style.fontFamily = 'Arial, sans-serif';
-  printDiv.style.fontSize = '12px';
+  printDiv.style.width = '80mm'; // Standard receipt paper width
+  printDiv.style.padding = '5mm';
+  printDiv.style.fontFamily = "'Arial', sans-serif";
   printDiv.style.backgroundColor = '#ffffff';
   printDiv.style.color = '#000000';
 
-  // Define receipt content with basic styling
+  // Inject print-specific CSS
+  const style = document.createElement('style');
+  style.textContent = `
+    @media print {
+      body * { visibility: hidden; }
+      .print-receipt, .print-receipt * { visibility: visible; }
+      .print-receipt {
+        position: static;
+        width: 80mm;
+        font-size: 10pt;
+        page-break-after: always;
+        transform: rotate(90deg);
+        transform-origin: center;
+        margin: 0;
+        padding: 5mm;
+      }
+      @page {
+        size: 80mm auto;
+        margin: 0;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+
+  // Format the receipt content
   printDiv.innerHTML = `
-    <div>
-      <h2 style="font-size: 16px; margin-bottom: 10px;">Receipt for ${donation.donorName}</h2>
-      <p style="margin: 5px 0;">Event: ${eventTitle}</p>
-      <p style="margin: 5px 0;">Donor Name: ${donation.donorName}</p>
-      <p style="margin: 5px 0;">Phone: ${donation.donorPhone || 'N/A'}</p>
-      <p style="margin: 5px 0;">Gift Item: ${donation.giftItem || 'N/A'}</p>
-      <p style="margin: 5px 0;">Amount: ${donation.currency || 'GHS'} ${
-        donation.amount != null ? donation.amount.toFixed(2) : 'N/A'
-      }</p>
-      <p style="margin: 5px 0;">Donated To: ${donation.donatedTo || 'N/A'}</p>
-      <p style="margin: 5px 0;">Date: ${new Date(donation.createdAt).toLocaleString()}</p>
+    <div style="display: flex; flex-direction: column; height: 100%;">
+      <header style="text-align: center; margin-bottom: 5mm;">
+        <h1 style="font-size: 12pt; font-weight: bold; margin: 0; text-transform: uppercase;">
+          ${eventType} RECEIPT
+        </h1>
+      </header>
+      <main style="flex-grow: 1; text-align: right;">
+        <h2 style="font-size: 14pt; font-family: 'Georgia', serif; font-weight: bold; margin: 0 0 3mm;">
+          ${eventTitle}
+        </h2>
+        <p style="font-size: 9pt; margin: 1mm 0;">${donation.donorName}</p>
+        ${donation.giftItem ? `<p style="font-size: 9pt; margin: 1mm 0;">Gift: ${donation.giftItem}</p>` : ''}
+        ${donation.amount != null && donation.currency ? `
+          <p style="font-size: 9pt; margin: 1mm 0;">
+            Donation: ${donation.currency} ${donation.amount.toFixed(2)}
+          </p>` : ''}
+        ${donation.donatedTo ? `<p style="font-size: 9pt; margin: 1mm 0;">To: ${donation.donatedTo}</p>` : ''}
+        <p style="font-size: 9pt; margin: 1mm 0;">
+          ${new Date(donation.createdAt).toLocaleString()}
+        </p>
+      </main>
+      <footer style="text-align: center; margin-top: 5mm;">
+        <p style="font-size: 9pt; font-style: italic; margin: 0;">
+          MAY GOD RICHLY BLESS YOU
+        </p>
+      </footer>
     </div>
   `;
+
   // Append to document
   document.body.appendChild(printDiv);
 
- setTimeout(() => {
+  setTimeout(() => {
     window.print();
     document.body.removeChild(printDiv);
+    document.head.removeChild(style);
   }, 200);
 };
 
@@ -237,6 +283,7 @@ export default function DeskAttendeeDashboard() {
         alert(`Failed to create donation: ${errorData.error || 'Unknown error'}`);
       }
     } catch (err) {
+      console.log('Error creating donation', err)
       alert('Error creating donation');
     }
     finally {

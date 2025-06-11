@@ -192,6 +192,7 @@ export default function AllEvents() {
     return;
   }
   try {
+    setLoading(true);
     const options = {
       maxSizeMB: 1,
       maxWidthOrHeight: 1920,
@@ -209,6 +210,9 @@ export default function AllEvents() {
   } catch (err) {
     console.error('Error compressing image:', err);
     alert('Failed to process image. Please try again.');
+  }
+  finally{
+    setLoading(false);
   }
 };
 
