@@ -44,7 +44,7 @@ export async function GET(
         donatedTo: true,
         status: true,
         createdAt: true,
-        event: { select: { title: true } },
+        event: { select: { title: true, image: true } },
       },
     });
 

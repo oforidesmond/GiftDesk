@@ -115,8 +115,10 @@ const printReceiptForDonation = (donation: Donation) => {
   printDiv.style.width = '80mm';
   printDiv.style.padding = '5mm';
   printDiv.style.fontFamily = "'Arial', sans-serif";
-  printDiv.style.backgroundColor = '#ffffff';
+  printDiv.style.background = 'linear-gradient(to bottom, #f8f9fa, #ffffff)';
   printDiv.style.color = '#000000';
+  printDiv.style.border = '1px solid #ccc';
+  printDiv.style.boxShadow = '0 2mm 4mm rgba(0,0,0,0.1)';
 
   const style = document.createElement('style');
   style.textContent = `
@@ -130,6 +132,9 @@ const printReceiptForDonation = (donation: Donation) => {
         page-break-after: always;
         margin: 0;
         padding: 5mm;
+        background: linear-gradient(to bottom, #f8f9fa, #ffffff);
+        border: 1px solid #ccc;
+        box-shadow: 0 2mm 4mm rgba(0,0,0,0.1);
       }
       .receipt-image {
         width: 30mm;
@@ -137,9 +142,16 @@ const printReceiptForDonation = (donation: Donation) => {
         object-fit: contain;
         display: block;
         margin: 3mm auto;
+        border: 1px solid #ddd;
+        border-radius: 2mm;
+        box-shadow: 0 1mm 2mm rgba(0,0,0,0.1);
       }
       .receipt-content {
         text-align: center;
+      }
+      .divider {
+        border-top: 1px dashed #999;
+        margin: 3mm 0;
       }
       @page {
         size: 80mm auto;
@@ -166,34 +178,37 @@ const printReceiptForDonation = (donation: Donation) => {
   printDiv.innerHTML = `
     <div style="display: flex; flex-direction: column; height: 100%;">
       <header style="text-align: center; margin-bottom: 3mm;">
-        <h1 style="font-size: 12pt; font-weight: bold; margin: 0; text-transform: uppercase;">
+        <h1 style="font-size: 12pt; font-family: 'Palatino', 'Times New Roman', serif; font-weight: bold; margin: 0; text-transform: uppercase; color: #003087;">
           ${eventType} RECEIPT
         </h1>
       </header>
+      <hr class="divider" />
       <main>
         ${
           donation.event.image
             ? `<img src="${donation.event.image}" class="receipt-image" style="width: 30mm; height: 30mm; object-fit: contain;" onerror="console.error('Image failed to load in receipt: ${donation.event.image}')" />`
-            : `<div style="width: 20mm; height: 20mm; margin: 3mm auto;"></div>`
+            : `<div style="width: 20mm; height: 20mm; margin: 3mm auto; background: #f0f0f0; border: 1px solid #ddd; border-radius: 2mm;"></div>`
         }
+        <hr class="divider" />
         <div class="receipt-content">
-          <h2 style="font-size: 14pt; font-family: 'Georgia', serif; font-weight: bold; margin: 3mm 0;">
+          <h2 style="font-size: 14pt; font-family: 'Georgia', serif; font-weight: bold; margin: 3mm 0; color: #222;">
             ${eventTitle}
           </h2>
-          <p style="font-size: 9pt; margin: 1mm 0;">${donation.donorName}</p>
-          ${donation.giftItem ? `<p style="font-size: 9pt; margin: 1mm 0;">Gift: ${donation.giftItem}</p>` : ''}
+          <p style="font-size: 9pt; margin: 1mm 0; color: #333;">${donation.donorName}</p>
+          ${donation.giftItem ? `<p style="font-size: 9pt; margin: 1mm 0; color: #333;">Gift: ${donation.giftItem}</p>` : ''}
           ${donation.amount != null && donation.currency ? `
-            <p style="font-size: 9pt; margin: 1mm 0;">
+            <p style="font-size: 9pt; margin: 1mm 0; color: #333;">
               Donation: ${donation.currency} ${donation.amount.toFixed(2)}
             </p>` : ''}
-          ${donation.donatedTo ? `<p style="font-size: 9pt; margin: 1mm 0;">To: ${donation.donatedTo}</p>` : ''}
-          <p style="font-size: 9pt; margin: 1mm 0;">
+          ${donation.donatedTo ? `<p style="font-size: 9pt; margin: 1mm 0; color: #333;">To: ${donation.donatedTo}</p>` : ''}
+          <p style="font-size: 9pt; margin: 1mm 0; color: #333;">
             ${new Date(donation.createdAt).toLocaleString()}
           </p>
         </div>
       </main>
-      <footer style="text-align: center; margin-top: 5mm;">
-        <p style="font-size: 9pt; font-style: italic; margin: 0;">
+      <hr class="divider" />
+      <footer style="text-align: center; margin-top: 3mm;">
+        <p style="font-size: 9pt; font-family: 'Palatino', 'Times New Roman', serif; font-style: italic; margin: 0; color: #555;">
           MAY GOD RICHLY BLESS YOU!
         </p>
       </footer>
@@ -501,6 +516,7 @@ const printReceiptForDonation = (donation: Donation) => {
               <th className="p-2 sm:p-3 border text-left font-medium">Notes</th>
               {/* <th className="p-2 sm:p-3 border text-left font-medium">Status</th> */}
               <th className="p-2 sm:p-3 border text-left font-medium">Created At</th>
+              <th className="p-2 sm:p-3 border text-left font-medium">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -532,6 +548,15 @@ const printReceiptForDonation = (donation: Donation) => {
                 </td> */}
                 <td className="p-2 sm:p-3 truncate max-w-[100px] sm:max-w-[150px] md:max-w-[200px]">
                   {new Date(donation.createdAt).toLocaleString()}
+                </td>
+                 <td className="p-2 sm:p-3">
+                  <button
+                    onClick={() => printReceiptForDonation(donation)}
+                    className="p-1 sm:p-2 bg-blue-600 text-white text-xs sm:text-sm rounded hover:bg-blue-700 transition-colors duration-200"
+                    aria-label={`Print receipt for donation ${donation.Id}`}
+                  >
+                    Print
+                  </button>
                 </td>
               </tr>
             ))}
